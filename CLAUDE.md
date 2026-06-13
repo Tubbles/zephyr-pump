@@ -23,6 +23,7 @@ them:
 ./dev.sh make pristine                          # clean (-p always) build
 ./dev.sh make menuconfig                         # Kconfig editor
 ./dev.sh make boards                             # list boards
+./dev.sh make format                             # align Markdown tables (Prettier)
 ./dev.sh make BOARD=hifive1 build                # override board (default hifive1_revb)
 ./dev.sh bash                                    # interactive shell in the env
 ./dev.sh west build -b hifive1_revb app -d build  # raw west, bypassing the Makefile
@@ -60,7 +61,8 @@ determines the entire environment:
   gitignored).
 - `Dockerfile` bakes only TOOLS: west (installed system-wide, no venv -- a
   disposable container needs none), Zephyr's revision-matched Python deps, the
-  RISC-V SDK, and Segger's J-Link pack for flashing. It harvests the deps + SDK
+  RISC-V SDK, Segger's J-Link pack for flashing, and a pinned Prettier (Node)
+  for Markdown formatting. It harvests the deps + SDK
   from a throwaway workspace built from `west.yml` (copied in first for layer
   caching) and then deletes that source, so no workspace is baked in. The J-Link
   pack is fetched straight from Segger at a pinned version; its download POST
@@ -91,6 +93,7 @@ if you ever want one.)
 - OS / SDK: edit the `Dockerfile`.
 - J-Link version: edit `JLINK_VERSION` in the `Dockerfile` (e.g. `V950`). Segger
   serves a tarball per version at a stable URL.
+- Prettier version: edit `PRETTIER_VERSION` in the `Dockerfile`.
 
 The image tag is pinned to the Zephyr version in `dev.sh` (`ZEPHYR_IMAGE`,
 default `zephyr-hifive1:v4.4.1`) and in the README's rebuild instructions; keep

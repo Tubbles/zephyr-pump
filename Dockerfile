@@ -1,7 +1,8 @@
 # Tools-only Zephyr build environment for the SiFive HiFive1 Rev B.
 #
-# This image bakes only the TOOLS: west, Zephyr's Python build deps, and the
-# RISC-V Zephyr SDK. It deliberately contains NO Zephyr workspace -- the source
+# This image bakes only the TOOLS: west, Zephyr's Python build deps, the
+# RISC-V Zephyr SDK, and Prettier (Markdown formatter). It deliberately contains
+# NO Zephyr workspace -- the source
 # checkout (zephyr/, modules/, ...) lives on the host alongside your project and
 # is fetched with `./dev.sh make update`. That keeps source on the host (owned
 # by you) and only programs in the image. west.yml pins the Zephyr revision;
@@ -71,3 +72,16 @@ RUN apt-get update \
  && tar xzf /tmp/jlink.tgz --strip-components=1 -C /opt/segger/jlink \
  && rm /tmp/jlink.tgz
 ENV PATH="/opt/segger/jlink:${PATH}"
+
+# --- Markdown formatter ----------------------------------------------------
+# `./dev.sh make format` (and `./dev.sh ./format.sh`) run Prettier to keep the
+# dense pinout tables in DESIGN.md aligned. Prettier is a Node tool, so bake Node
+# plus a pinned global Prettier; formatting then runs in the same container as
+# the build, keeping the host free of Node. Pinned to match the pin-everything
+# policy; bump PRETTIER_VERSION to change it.
+ARG PRETTIER_VERSION=3.4.2
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends nodejs npm \
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install -g "prettier@${PRETTIER_VERSION}" \
+ && npm cache clean --force

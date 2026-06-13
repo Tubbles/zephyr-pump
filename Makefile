@@ -14,7 +14,7 @@
 
 BOARD ?= hifive1_revb
 
-.PHONY: help update check-workspace build pristine clean menuconfig boards
+.PHONY: help update check-workspace build pristine clean menuconfig boards format
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -53,3 +53,6 @@ menuconfig: check-workspace ## Interactive Kconfig editor for the current build
 
 boards: check-workspace ## List the boards west knows about
 	west boards
+
+format: ## Format the repo's Markdown (aligns the DESIGN.md tables) with Prettier
+	./format.sh

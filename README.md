@@ -8,8 +8,8 @@ nothing is installed on your machine except Podman.
   in-tree FE310 needs none); add an `import` allowlist when a feature needs a
   module.
 - `Dockerfile` bakes only the tools (west, Zephyr's Python build deps, the
-  RISC-V Zephyr SDK, and Segger's J-Link pack for flashing) into an image. The
-  Zephyr source stays on the host.
+  RISC-V Zephyr SDK, Segger's J-Link pack for flashing, and Prettier for
+  Markdown formatting) into an image. The Zephyr source stays on the host.
 - The repo itself is the west workspace: `./dev.sh make update` fetches the
   source (`zephyr/`, `modules/`, ...) into it, all gitignored. `app/` is the
   only thing you edit.
@@ -30,6 +30,7 @@ The `Makefile` holds plain recipes; compose them with `dev.sh`:
 ./dev.sh make pristine                                # clean build
 ./dev.sh make menuconfig                              # Kconfig editor
 ./dev.sh make boards                                  # list boards
+./dev.sh make format                                  # align Markdown tables (Prettier)
 ./dev.sh make BOARD=hifive1 build                     # override the board
 ./dev.sh bash                                         # shell in the env
 ./dev.sh west build -b hifive1_revb app -d build       # raw west, no Makefile
