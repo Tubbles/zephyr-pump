@@ -1,20 +1,21 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## What this is
 
 A self-contained Zephyr RTOS build environment for the SiFive HiFive1 Rev B
 (FE310-G002, RISC-V). The repo + Dockerfile fully describe the toolchain;
 nothing is installed on the host except Podman. `app/` is the only thing you
-edit.
+edit. Make sure to read DESIGN.md to understand the project.
 
 ## Build and run
 
 Everything runs inside the pinned container via `dev.sh`, which prepends the
-Zephyr environment to any command. The `Makefile` holds plain Zephyr recipes
-and knows nothing about Podman; `dev.sh` knows nothing about the Makefile.
-Compose them:
+Zephyr environment to any command. The `Makefile` holds plain Zephyr recipes and
+knows nothing about Podman; `dev.sh` knows nothing about the Makefile. Compose
+them:
 
 ```
 ./dev.sh make update                            # fetch workspace into the repo (once)
@@ -32,15 +33,15 @@ make clean                                       # just an rm; runs on the host,
 `dev.sh` rebuilds the image on every run, but layer caching makes that
 near-instant once built; the first build is the slow, network-bound one
 (installs west + Zephyr's Python deps, downloads the SDK + J-Link pack). Then
-`./dev.sh make update` fetches
-the Zephyr source into the repo (also slow, also network) -- required once
-before the first build, and again after any `west.yml` revision bump. Later runs
-reuse both. The workspace and `build/` persist on the host between runs (both
-git-ignored), so incremental builds work; use `pristine` for a clean rebuild.
-Output lands in `build/zephyr/` (`zephyr.elf`, `.bin`, `.hex`), owned by you.
+`./dev.sh make update` fetches the Zephyr source into the repo (also slow, also
+network) -- required once before the first build, and again after any `west.yml`
+revision bump. Later runs reuse both. The workspace and `build/` persist on the
+host between runs (both git-ignored), so incremental builds work; use `pristine`
+for a clean rebuild. Output lands in `build/zephyr/` (`zephyr.elf`, `.bin`,
+`.hex`), owned by you.
 
-There is no test suite or linter in this repo. Verification is building
-cleanly and (optionally) flashing + watching `console.sh` output.
+There is no test suite or linter in this repo. Verification is building cleanly
+and (optionally) flashing + watching `console.sh` output.
 
 ## Architecture
 
@@ -53,8 +54,10 @@ determines the entire environment:
   (add an `import` allowlist when a feature needs a module; an empty allowlist
   imports everything, so don't use that to mean "none"). The repo root is the
   west topdir (Zephyr "T2 / star topology" application); `make update` copies
-  this file into a generated, gitignored `.manifest/` git repo and runs `west
-  init -l .manifest`, so the checkouts land in the repo (all gitignored).
+  this file into a generated, gitignored `.manifest/` git repo and runs
+  `west
+  init -l .manifest`, so the checkouts land in the repo (all
+  gitignored).
 - `Dockerfile` bakes only TOOLS: west (installed system-wide, no venv -- a
   disposable container needs none), Zephyr's revision-matched Python deps, the
   RISC-V SDK, and Segger's J-Link pack for flashing. It harvests the deps + SDK
@@ -78,10 +81,10 @@ the source host-side and owned by you, that whole class of problem is gone.
 
 ## Changing versions
 
-`dev.sh` rebuilds on every run, so edits below take effect on the next `./dev.sh`
-invocation -- layer caching only re-runs the changed layer and those after it.
-(`podman image rm zephyr-hifive1:v4.4.1` forces a cache-free rebuild if you ever
-want one.)
+`dev.sh` rebuilds on every run, so edits below take effect on the next
+`./dev.sh` invocation -- layer caching only re-runs the changed layer and those
+after it. (`podman image rm zephyr-hifive1:v4.4.1` forces a cache-free rebuild
+if you ever want one.)
 
 - Zephyr version: edit `revision:` in `west.yml`, then `./dev.sh make update` to
   refresh the workspace to the new revision.
@@ -89,9 +92,9 @@ want one.)
 - J-Link version: edit `JLINK_VERSION` in the `Dockerfile` (e.g. `V950`). Segger
   serves a tarball per version at a stable URL.
 
-The image tag is pinned to the Zephyr version in `dev.sh`
-(`ZEPHYR_IMAGE`, default `zephyr-hifive1:v4.4.1`) and in the README's rebuild
-instructions; keep all three in sync when bumping the Zephyr revision.
+The image tag is pinned to the Zephyr version in `dev.sh` (`ZEPHYR_IMAGE`,
+default `zephyr-hifive1:v4.4.1`) and in the README's rebuild instructions; keep
+all three in sync when bumping the Zephyr revision.
 
 ## Flashing
 
