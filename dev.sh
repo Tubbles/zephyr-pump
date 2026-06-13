@@ -31,11 +31,14 @@ fi
 tty_flags=()
 [ -t 0 ] && [ -t 1 ] && tty_flags=(-it)
 
-# --userns=keep-id + :z: rootless-podman/SELinux handling so artifacts come out
-# owned by you. HOME=/tmp gives CMake/west a writable cache dir. The repo is
-# mounted at its host path (so in-/out-of-container paths match) as the west
-# topdir, and ZEPHYR_BASE points at the zephyr checkout the workspace fetched.
-exec podman run --rm "${tty_flags[@]}" \
+# --init: run a tiny init as PID 1 so Ctrl+C is forwarded and child processes
+# (a long `git fetch`, a hung build) are reaped -- without it SIGINT leaves the
+# container alive and the terminal wedged. --userns=keep-id + :z: rootless-
+# podman/SELinux handling so artifacts come out owned by you. HOME=/tmp gives
+# CMake/west a writable cache dir. The repo is mounted at its host path (so
+# in-/out-of-container paths match) as the west topdir, and ZEPHYR_BASE points
+# at the zephyr checkout the workspace fetched.
+exec podman run --rm --init "${tty_flags[@]}" \
   --userns=keep-id \
   -e HOME=/tmp \
   -e ZEPHYR_BASE="$REPO_DIR/zephyr" \
