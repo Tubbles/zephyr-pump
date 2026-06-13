@@ -11,10 +11,12 @@
 #   ./dev.sh west boards
 #   ./dev.sh bash
 #
-# The repo IS the west workspace topdir: it is mounted at /work (the working
-# directory), and `make update` fetches zephyr/, modules/, ... into it (all
-# gitignored). The image carries only tools, so ZEPHYR_BASE points at the
-# zephyr checkout inside the mounted repo. Build output lands in ./build.
+# The repo IS the west workspace topdir: it is mounted at the SAME path inside
+# the container as on the host (so paths in errors, compile_commands.json, etc.
+# match), and that is the working directory. `make update` fetches zephyr/,
+# modules/, ... into it (all gitignored). The image carries only tools, so
+# ZEPHYR_BASE points at the zephyr checkout inside the mounted repo. Build
+# output lands in ./build.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,13 +33,13 @@ tty_flags=()
 
 # --userns=keep-id + :z: rootless-podman/SELinux handling so artifacts come out
 # owned by you. HOME=/tmp gives CMake/west a writable cache dir. The repo is
-# mounted as the west topdir and ZEPHYR_BASE points at the zephyr checkout the
-# workspace fetched into it.
+# mounted at its host path (so in-/out-of-container paths match) as the west
+# topdir, and ZEPHYR_BASE points at the zephyr checkout the workspace fetched.
 exec podman run --rm "${tty_flags[@]}" \
   --userns=keep-id \
   -e HOME=/tmp \
-  -e ZEPHYR_BASE=/work/zephyr \
-  -v "$REPO_DIR":/work:z \
-  -w /work \
+  -e ZEPHYR_BASE="$REPO_DIR/zephyr" \
+  -v "$REPO_DIR":"$REPO_DIR":z \
+  -w "$REPO_DIR" \
   "$IMAGE" \
   "$@"

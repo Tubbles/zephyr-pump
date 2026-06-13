@@ -57,10 +57,11 @@ determines the entire environment:
   the RISC-V SDK. It harvests the deps + SDK from a throwaway workspace built
   from `west.yml` (copied in first for layer caching) and then deletes that
   source, so no workspace is baked in.
-- `dev.sh` bind-mounts the repo as the workspace topdir at `/work` and runs
-  there with `--userns=keep-id` + `:z` so artifacts (and the workspace) come out
-  owned by you, `HOME=/tmp` for a writable cache, and `ZEPHYR_BASE=/work/zephyr`
-  pointing at the checkout (the image has no Zephyr of its own).
+- `dev.sh` bind-mounts the repo as the workspace topdir at its **host path**
+  (`$PWD:$PWD:z`, so in-container paths match the host) and runs there with
+  `--userns=keep-id` so artifacts (and the workspace) come out owned by you,
+  `HOME=/tmp` for a writable cache, and `ZEPHYR_BASE=$repo/zephyr` pointing at
+  the checkout (the image has no Zephyr of its own).
 
 This split is deliberate: baking the workspace as root while running as your uid
 caused git "dubious ownership" failures that broke west's manifest import. With
