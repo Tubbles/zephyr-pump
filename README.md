@@ -38,8 +38,9 @@ The `Makefile` holds plain recipes; compose them with `dev.sh`:
 `make help` lists the recipes. `make clean` is just an rm and works on the host
 too (no `dev.sh` needed).
 
-The first invocation builds the image (installs west + Zephyr's Python deps and
-downloads the SDK), so it takes a while and needs network. Then run
+`dev.sh` rebuilds the image on every run; layer caching keeps that near-instant
+after the first build, which is the slow, network-bound one (installs west +
+Zephyr's Python deps, downloads the SDK + J-Link pack). Then run
 `./dev.sh make update` once to fetch the Zephyr source into the repo (also slow,
 also network). Later runs reuse both and are fast; the workspace and `build/`
 persist between runs, so incremental builds work (use `pristine` only when you
@@ -48,14 +49,14 @@ want a clean rebuild). Output ends up in `build/zephyr/` (`zephyr.elf`,
 
 ## Change the Zephyr version
 
-Edit `revision:` in `west.yml`, then rebuild the image and refresh the
-workspace:
+Edit `revision:` in `west.yml`, then refresh the workspace:
 
 ```
-podman image rm zephyr-hifive1:v4.4.1
 ./dev.sh make update
 ```
 
+`dev.sh` rebuilds the image on every run (layer caching keeps it quick), so the
+new revision is baked automatically; `make update` then refreshes the checkout.
 Both the image's baked tools/deps and the workspace are derived from `west.yml`,
 so the repo alone determines the environment.
 

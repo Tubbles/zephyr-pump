@@ -29,8 +29,10 @@ make clean                                       # just an rm; runs on the host,
 ./console.sh                                     # read-only UART monitor (host, 115200 baud)
 ```
 
-First `dev.sh` invocation builds the image (installs west + Zephyr's Python deps,
-downloads the SDK): slow and needs network. Then `./dev.sh make update` fetches
+`dev.sh` rebuilds the image on every run, but layer caching makes that
+near-instant once built; the first build is the slow, network-bound one
+(installs west + Zephyr's Python deps, downloads the SDK + J-Link pack). Then
+`./dev.sh make update` fetches
 the Zephyr source into the repo (also slow, also network) -- required once
 before the first build, and again after any `west.yml` revision bump. Later runs
 reuse both. The workspace and `build/` persist on the host between runs (both
@@ -73,12 +75,16 @@ the source host-side and owned by you, that whole class of problem is gone.
 
 ## Changing versions
 
-- Zephyr version: edit `revision:` in `west.yml`, rebuild the image
-  (`podman image rm zephyr-hifive1:v4.4.1` then any `./dev.sh` command), then
-  `./dev.sh make update` to refresh the workspace to the new revision.
-- OS / SDK: edit the `Dockerfile`, then rebuild the image.
-- J-Link version: edit `JLINK_VERSION` in the `Dockerfile` (e.g. `V950`), then
-  rebuild the image. Segger serves a tarball per version at a stable URL.
+`dev.sh` rebuilds on every run, so edits below take effect on the next `./dev.sh`
+invocation -- layer caching only re-runs the changed layer and those after it.
+(`podman image rm zephyr-hifive1:v4.4.1` forces a cache-free rebuild if you ever
+want one.)
+
+- Zephyr version: edit `revision:` in `west.yml`, then `./dev.sh make update` to
+  refresh the workspace to the new revision.
+- OS / SDK: edit the `Dockerfile`.
+- J-Link version: edit `JLINK_VERSION` in the `Dockerfile` (e.g. `V950`). Segger
+  serves a tarball per version at a stable URL.
 
 The image tag is pinned to the Zephyr version in `dev.sh`
 (`ZEPHYR_IMAGE`, default `zephyr-hifive1:v4.4.1`) and in the README's rebuild

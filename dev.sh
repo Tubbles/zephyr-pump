@@ -22,11 +22,12 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="${ZEPHYR_IMAGE:-zephyr-hifive1:v4.4.1}"
 
-# Build the image on first use (or after you delete it / bump west.yml).
-if ! podman image inspect "$IMAGE" >/dev/null 2>&1; then
-  echo ">> building $IMAGE (clones Zephyr + downloads the SDK; takes a while) ..." >&2
-  podman build -t "$IMAGE" "$REPO_DIR"
-fi
+# Always (re)build so a changed Dockerfile takes effect without manual cache
+# busting. Layer caching makes a no-op build near-instant -- only a changed layer
+# and the ones after it re-run -- so this is cheap on every invocation. The first
+# build is the slow, network-bound one (clones Zephyr, downloads the SDK + J-Link
+# pack). Output goes to stderr so the wrapped command's stdout stays clean.
+podman build -t "$IMAGE" "$REPO_DIR" >&2
 
 tty_flags=()
 [ -t 0 ] && [ -t 1 ] && tty_flags=(-it)
