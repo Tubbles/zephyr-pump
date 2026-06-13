@@ -1,0 +1,23 @@
+# EditorConfig (https://editorconfig.org): render this repo's hard tabs 8 wide,
+# matching Zephyr's C style and the vendored .clang-format. Prettier-managed
+# files (Markdown, YAML) use 2-space indent, so they are excluded from the tab
+# rules to keep editors from fighting the formatter.
+root = true
+
+[*]
+tab_width = 8
+end_of_line = lf
+charset = utf-8
+
+[*.{c,h}]
+indent_style = tab
+
+[{Kconfig,Kconfig.*,*.conf}]
+indent_style = tab
+
+[Makefile]
+indent_style = tab
+
+[*.{md,yml,yaml}]
+indent_style = space
+indent_size = 2
