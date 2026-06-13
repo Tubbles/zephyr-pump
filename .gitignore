@@ -1,5 +1,8 @@
 /build/
 
+# Scratch space for logs, intermediate command output, commit messages, etc.
+/tmp/
+
 # West workspace materialized in-repo by `make update` (the repo root is the
 # west topdir). All generated; none of it is tracked.
 /.manifest/
