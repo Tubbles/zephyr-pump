@@ -54,5 +54,5 @@ menuconfig: check-workspace ## Interactive Kconfig editor for the current build
 boards: check-workspace ## List the boards west knows about
 	west boards
 
-format: ## Format the repo's Markdown (aligns the DESIGN.md tables) with Prettier
+format: ## Format the repo's sources: Markdown (Prettier) + app/ C (clang-format)
 	./format.sh

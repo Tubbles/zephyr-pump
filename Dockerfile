@@ -73,15 +73,16 @@ RUN apt-get update \
  && rm /tmp/jlink.tgz
 ENV PATH="/opt/segger/jlink:${PATH}"
 
-# --- Markdown formatter ----------------------------------------------------
-# `./dev.sh make format` (and `./dev.sh ./format.sh`) run Prettier to keep the
-# dense pinout tables in DESIGN.md aligned. Prettier is a Node tool, so bake Node
-# plus a pinned global Prettier; formatting then runs in the same container as
-# the build, keeping the host free of Node. Pinned to match the pin-everything
-# policy; bump PRETTIER_VERSION to change it.
+# --- Formatters ------------------------------------------------------------
+# `./dev.sh make format` (and `./dev.sh ./format.sh`) run Prettier on the repo's
+# Markdown (keeping the dense pinout tables in DESIGN.md aligned) and clang-format
+# on the C in app/. Prettier is a Node tool, so bake Node + a pinned global
+# Prettier; clang-format comes from Debian, so its version tracks the pinned OS.
+# Both then run in the same container as the build, keeping the host free of
+# either. Bump PRETTIER_VERSION to change Prettier.
 ARG PRETTIER_VERSION=3.4.2
 RUN apt-get update \
- && apt-get install -y --no-install-recommends nodejs npm \
+ && apt-get install -y --no-install-recommends nodejs npm clang-format \
  && rm -rf /var/lib/apt/lists/* \
  && npm install -g "prettier@${PRETTIER_VERSION}" \
  && npm cache clean --force
