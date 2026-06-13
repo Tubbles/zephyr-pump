@@ -38,11 +38,19 @@ tty_flags=()
 # CMake/west a writable cache dir. The repo is mounted at its host path (so
 # in-/out-of-container paths match) as the west topdir, and ZEPHYR_BASE points
 # at the zephyr checkout the workspace fetched.
+#
+# /dev/bus/usb is mounted so `west flash` can reach the board's onboard J-Link
+# over USB (the image bakes JLinkExe). The whole bus tree is mounted, not a fixed
+# node, because the kernel renumbers the device on every replug. --userns=keep-id
+# maps the container process back to your host uid, which logind's uaccess ACL on
+# the device node already grants -- so no extra privilege or udev rule is needed.
+# Harmless when no board is attached; the directory just has nothing to flash.
 exec podman run --rm --init "${tty_flags[@]}" \
   --userns=keep-id \
   -e HOME=/tmp \
   -e ZEPHYR_BASE="$REPO_DIR/zephyr" \
   -v "$REPO_DIR":"$REPO_DIR":z \
+  -v /dev/bus/usb:/dev/bus/usb \
   -w "$REPO_DIR" \
   "$IMAGE" \
   "$@"

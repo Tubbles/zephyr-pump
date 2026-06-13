@@ -54,15 +54,18 @@ determines the entire environment:
   this file into a generated, gitignored `.manifest/` git repo and runs `west
   init -l .manifest`, so the checkouts land in the repo (all gitignored).
 - `Dockerfile` bakes only TOOLS: west (installed system-wide, no venv -- a
-  disposable container needs none), Zephyr's revision-matched Python deps, and
-  the RISC-V SDK. It harvests the deps + SDK from a throwaway workspace built
-  from `west.yml` (copied in first for layer caching) and then deletes that
-  source, so no workspace is baked in.
+  disposable container needs none), Zephyr's revision-matched Python deps, the
+  RISC-V SDK, and Segger's J-Link pack for flashing. It harvests the deps + SDK
+  from a throwaway workspace built from `west.yml` (copied in first for layer
+  caching) and then deletes that source, so no workspace is baked in. The J-Link
+  pack is fetched straight from Segger at a pinned version; its download POST
+  auto-accepts Segger's EULA, so building the image accepts it.
 - `dev.sh` bind-mounts the repo as the workspace topdir at its **host path**
   (`$PWD:$PWD:z`, so in-container paths match the host) and runs there with
   `--userns=keep-id` so artifacts (and the workspace) come out owned by you,
   `HOME=/tmp` for a writable cache, and `ZEPHYR_BASE=$repo/zephyr` pointing at
-  the checkout (the image has no Zephyr of its own).
+  the checkout (the image has no Zephyr of its own). It also mounts
+  `/dev/bus/usb` so `west flash` can reach the board's J-Link over USB.
 
 This split is deliberate: baking the workspace as root while running as your uid
 caused git "dubious ownership" failures that broke west's manifest import. With
@@ -74,6 +77,8 @@ the source host-side and owned by you, that whole class of problem is gone.
   (`podman image rm zephyr-hifive1:v4.4.1` then any `./dev.sh` command), then
   `./dev.sh make update` to refresh the workspace to the new revision.
 - OS / SDK: edit the `Dockerfile`, then rebuild the image.
+- J-Link version: edit `JLINK_VERSION` in the `Dockerfile` (e.g. `V950`), then
+  rebuild the image. Segger serves a tarball per version at a stable URL.
 
 The image tag is pinned to the Zephyr version in `dev.sh`
 (`ZEPHYR_IMAGE`, default `zephyr-hifive1:v4.4.1`) and in the README's rebuild
@@ -81,8 +86,21 @@ instructions; keep all three in sync when bumping the Zephyr revision.
 
 ## Flashing
 
-`west flash` here drives the onboard Segger J-Link OB, needing Segger's
-proprietary J-Link pack and USB access. The intended split is: build in the
-container, flash from the host against `build/zephyr/zephyr.elf`. In-container
-flashing (USB passthrough + J-Link pack in a downstream layer) is deliberately
-left out of the base setup.
+`west flash` drives the board's onboard Segger J-Link OB and works inside the
+container: the image bakes JLinkExe (the `jlink` runner shells out to it) and
+`dev.sh` mounts `/dev/bus/usb` so it can reach the probe.
+
+```
+./dev.sh make build       # build first (flash does not rebuild reliably on its own)
+./dev.sh west flash       # flash build/zephyr/zephyr.elf via the onboard J-Link
+```
+
+Host permissions usually need nothing: on a normal desktop, logind's `uaccess`
+ACL grants your seat user rw on the J-Link node, and `--userns=keep-id` maps the
+container process back to that uid. On a headless box with no seat ACL, install
+Segger's `99-jlink.rules` (shipped in the J-Link pack) on the **host** so your
+user can open the device.
+
+Drag-and-drop still works too and needs none of this: the J-Link OB also exposes
+a USB mass-storage drive, so copying `build/zephyr/zephyr.hex` onto it from the
+host flashes the board.

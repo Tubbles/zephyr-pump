@@ -8,7 +8,8 @@ nothing is installed on your machine except Podman.
   in-tree FE310 needs none); add an `import` allowlist when a feature needs a
   module.
 - `Dockerfile` bakes only the tools (west, Zephyr's Python build deps, the
-  RISC-V Zephyr SDK) into an image. The Zephyr source stays on the host.
+  RISC-V Zephyr SDK, and Segger's J-Link pack for flashing) into an image. The
+  Zephyr source stays on the host.
 - The repo itself is the west workspace: `./dev.sh make update` fetches the
   source (`zephyr/`, `modules/`, ...) into it, all gitignored. `app/` is the
   only thing you edit.
@@ -60,12 +61,22 @@ so the repo alone determines the environment.
 
 ## Flashing
 
-`west flash` on this board drives the onboard Segger J-Link OB, which needs
-Segger's proprietary J-Link pack and USB access. The clean split is to build in
-the container and flash from the host (host J-Link tools or OpenOCD against
-`build/zephyr/zephyr.elf`). In-container flashing is possible with USB
-passthrough (`--device /dev/bus/usb`) plus the J-Link pack in a downstream image
-layer, but is intentionally left out of the base setup.
+`west flash` drives the board's onboard Segger J-Link OB and works inside the
+container: the image bakes JLinkExe and `dev.sh` mounts `/dev/bus/usb` so it can
+reach the probe.
+
+```
+./dev.sh make build
+./dev.sh west flash       # flashes build/zephyr/zephyr.elf via the J-Link
+```
+
+On a normal desktop no host setup is needed (logind's `uaccess` ACL already
+grants your user the device, and `--userns=keep-id` carries that uid into the
+container). On a headless box, install Segger's `99-jlink.rules` on the host.
+
+Alternatively, drag-and-drop needs nothing in the container: the J-Link OB also
+shows up as a USB mass-storage drive, so copying `build/zephyr/zephyr.hex` onto
+it from the host flashes the board.
 
 ## Console output
 
