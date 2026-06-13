@@ -1,0 +1,25 @@
+# Application-specific Kconfig. Symbols defined here are layered on top of the
+# normal Zephyr tree, which is pulled in by the trailing source line.
+
+config APP_SPEAKER
+	bool "Software-driven speaker with tone shell command"
+	depends on GPIO && SHELL
+	help
+	  Drive the EDU Shield speaker (D2 / FE310 GPIO18) as a square wave by
+	  toggling the pin from a k_timer expiry handler, which runs in the
+	  system timer interrupt. GPIO18 has no PWM mux, so this is the only way
+	  to make sound on D2. Registers a "tone <centi-hz> <ms>" shell command.
+
+if APP_SPEAKER
+
+# A finer system tick lets the toggle timer hit the requested frequency. At the
+# board default (tickless, 10 kHz => 100 us steps) tones above ~1 kHz quantize
+# badly; 100 kHz gives 10 us steps, keeping audible tones within ~1% of target.
+# With the tickless kernel this only sets timeout granularity, it does not add a
+# fixed interrupt rate. mtime runs at 16 MHz here, so this is 160 cycles/tick.
+config SYS_CLOCK_TICKS_PER_SEC
+	default 100000
+
+endif # APP_SPEAKER
+
+source "Kconfig.zephyr"

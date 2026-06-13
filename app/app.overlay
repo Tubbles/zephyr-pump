@@ -1,0 +1,13 @@
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/*
+ * Speaker on the EDU Shield D2 line = FE310 GPIO18 (see DESIGN.md). GPIO18 has
+ * no PWM/serial mux, so the tone is produced by toggling the pin in software
+ * (app/src/speaker.c). Exposed through the standard zephyr,user node so the app
+ * needs no custom binding.
+ */
+/ {
+	zephyr,user {
+		speaker-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+	};
+};

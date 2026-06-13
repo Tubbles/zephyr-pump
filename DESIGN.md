@@ -197,6 +197,22 @@ or **Zephyr**. PWM = configure pwmcfg / pwmscale / pwmcmp0 (period) + pwmcmp1 (t
 on PWM2; GPIO for DIR/EN; I²C peripheral for the sensors. Under Zephyr the `pwm_sifive` driver
 rejects channel 0, so STEP uses channel 1. No `analogWrite()` / `analogRead()`.
 
+## Speaker tone (software)
+
+D2 (GPIO18) has no PWM mux, so the speaker is driven as a square wave in
+software: a repeating `k_timer` toggles the pin from its expiry handler, which
+runs in the system timer interrupt. A one-shot `k_timer` ends the tone and parks
+the pin low. Lives in `app/src/speaker.c`, gated by `CONFIG_APP_SPEAKER`, which
+also raises `CONFIG_SYS_CLOCK_TICKS_PER_SEC` to 100 kHz (10 µs steps) so the
+output frequency tracks the request to within ~1%. It registers a shell command:
+
+```
+tone <centi-hz> <ms>   # e.g. tone 44000 500  -> 440.00 Hz for half a second
+```
+
+Frequency is in centi-hertz (hundredths of a Hz) so the integer argument can
+express sub-hertz precision.
+
 ## Quick pin summary
 
 ```
