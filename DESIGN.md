@@ -197,6 +197,41 @@ or **Zephyr**. PWM = configure pwmcfg / pwmscale / pwmcmp0 (period) + pwmcmp1 (t
 on PWM2; GPIO for DIR/EN; I²C peripheral for the sensors. Under Zephyr the `pwm_sifive` driver
 rejects channel 0, so STEP uses channel 1. No `analogWrite()` / `analogRead()`.
 
+## Motor control (implemented)
+
+The STEP/DIR/EN peripherals are wired up in `app/app.overlay` and driven from
+`app/src/motor.c`, gated by `CONFIG_APP_MOTOR`. The overlay realizes the
+overlay plan above:
+
+- `spi1` and `spi2` are disabled. Both claim GPIO9 on this board (spi2 reuses
+  spi1's cs2 pin group), and spi1 also claims GPIO10, so both must go to free
+  DIR/EN as plain GPIO. The boot flash is on spi0, so this is safe.
+- `pwm2` is trimmed to `pinctrl-0 = <&pwm2_1_default>` (channel 1 only), keeping
+  STEP on GPIO11 and leaving GPIO12/13 free for I²C0.
+- The `zephyr,user` node carries `pwms = <&pwm2 1 PWM_MSEC(1)>` (STEP, default
+  1 kHz, rate set at runtime), `dir-gpios` (GPIO9), and `en-gpios` (GPIO10,
+  `GPIO_ACTIVE_LOW` so logical 1 means "driver enabled"). The
+  `sifive,pwm0` binding has `#pwm-cells = <2>` (channel, period) with no flags
+  cell; the driver only supports normal polarity anyway.
+
+At boot the driver parks EN inactive (motor free, no holding current) and STEP
+at 0% duty (no pulses). It registers a `motor` shell command group:
+
+```
+motor enable             # EN active (energize, holding torque on)
+motor disable            # EN inactive (coast)
+motor dir <0|1>          # set the DIR line level
+motor run <hz>           # continuous step train at <hz>
+motor steps <count> <hz> # step <count> times at <hz>, then stop (~±1 step)
+motor stop               # stop the step train
+motor status             # last commanded enabled / dir / rate
+```
+
+STEP runs as a 50% square wave (the A4988 needs only a ~1 µs minimum high time).
+`run`/`steps` do not auto-enable the driver; they warn when EN is inactive since
+the motor won't move. `steps` schedules the stop on the system workqueue, so the
+pulse count is timer-bounded and accurate to about ±1 step.
+
 ## Speaker tone (software)
 
 D2 (GPIO18) has no PWM mux, so the speaker is driven as a square wave in

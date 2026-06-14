@@ -1,13 +1,41 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
 
 /*
- * Speaker on the EDU Shield D2 line = FE310 GPIO18 (see DESIGN.md). GPIO18 has
- * no PWM/serial mux, so the tone is produced by toggling the pin in software
- * (app/src/speaker.c). Exposed through the standard zephyr,user node so the app
- * needs no custom binding.
+ * A4988 stepper control lines on the J4 header (see DESIGN.md). spi1 and spi2
+ * both claim GPIO9 by default (spi2 reuses spi1's cs2 pin group on this board),
+ * and spi1 also claims GPIO10, so disable both to free DIR/EN as plain GPIO.
+ * The boot flash is on spi0, so disabling spi1/spi2 is safe.
+ */
+&spi1 {
+	status = "disabled";
+};
+
+&spi2 {
+	status = "disabled";
+};
+
+/*
+ * STEP is PWM2 channel 1 (GPIO11). Trim pwm2 to that one channel: the default
+ * also muxes channels 2/3 onto GPIO12/13, which we keep free for I2C0.
+ */
+&pwm2 {
+	pinctrl-0 = <&pwm2_1_default>;
+};
+
+/*
+ * Speaker on D2 = GPIO18 (software tone, app/src/speaker.c) and the A4988
+ * stepper lines (app/src/motor.c). Both are exposed through the standard
+ * zephyr,user node so the app needs no custom binding. EN is active-low on the
+ * A4988, so GPIO_ACTIVE_LOW lets the code treat logical 1 as "driver enabled".
+ * The pwms property must be named exactly "pwms" for PWM_DT_SPEC_GET; the
+ * sifive,pwm0 binding has #pwm-cells = <2> (channel, period), no flags cell.
  */
 / {
 	zephyr,user {
 		speaker-gpios = <&gpio0 18 GPIO_ACTIVE_HIGH>;
+		pwms = <&pwm2 1 PWM_MSEC(1)>;
+		dir-gpios = <&gpio0 9 GPIO_ACTIVE_HIGH>;
+		en-gpios = <&gpio0 10 GPIO_ACTIVE_LOW>;
 	};
 };

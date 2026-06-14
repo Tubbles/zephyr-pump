@@ -22,4 +22,14 @@ config SYS_CLOCK_TICKS_PER_SEC
 
 endif # APP_SPEAKER
 
+config APP_MOTOR
+	bool "A4988 stepper control with motor shell commands"
+	depends on GPIO && PWM && SHELL
+	help
+	  Wire the A4988 stepper driver to the J4 header and expose a "motor"
+	  shell command group for bench debugging. STEP is GPIO11 / PWM2 channel
+	  1 (the step pulse train), DIR is GPIO9, and EN is GPIO10 (active-low).
+	  Requires the app.overlay that disables spi1/spi2 (freeing GPIO9/10) and
+	  trims pwm2 to channel 1. See DESIGN.md.
+
 source "Kconfig.zephyr"
