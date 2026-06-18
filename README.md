@@ -73,12 +73,14 @@ esptool and `dev.sh` passes the board's `/dev/ttyACM*` serial node in.
 ```
 
 esptool auto-detects the port; if you have more than one board attached, pin it
-with `./dev.sh west flash --esp-device /dev/ttyACM0`. On a normal desktop no
-host setup is needed (logind's `uaccess` ACL already grants your user the
-device, and `--userns=keep-id` carries that uid into the container). On a
-headless box, add yourself to the `dialout` group on the host. If auto-reset
-into the download mode ever fails, hold the BOOT button while tapping RESET,
-then flash.
+with `./dev.sh west flash --esp-device /dev/ttyACM0`. Add yourself to the
+`dialout` group on the host (`sudo usermod -aG dialout $USER`, then re-login):
+the serial node is `root:dialout rw-rw----`, and `dev.sh` carries your
+membership into the container via `--group-add keep-groups`. On a desktop with a
+logind `uaccess` ACL this group is technically redundant (the per-uid ACL plus
+`--userns=keep-id` already grants access), but not every host has that ACL, so
+the group path is the reliable one. If auto-reset into the download mode ever
+fails, hold the BOOT button while tapping RESET, then flash.
 
 ## Console output
 

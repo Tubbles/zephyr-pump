@@ -52,10 +52,21 @@ tty_flags=()
 # The board's serial port(s) are passed in with --device so `west flash`
 # (esptool) can reach the XIAO over USB-Serial/JTAG. Every /dev/ttyACM*/ttyUSB*
 # that exists right now is bound, since the kernel renumbers the node on every
-# replug. Access needs no extra host setup on a desktop: logind's uaccess ACL
-# grants your seat uid rw on the node, and --userns=keep-id maps the container
-# process back to that uid (SELinux is the other half, handled by label=disable
-# above). Harmless when no board is attached: there is just nothing to flash.
+# replug. Harmless when no board is attached: there is just nothing to flash.
+#
+# Two host paths grant rw on the node, and we cover both:
+#   1. Desktop seat: logind's uaccess ACL grants your seat uid rw directly on the
+#      node. --userns=keep-id maps the container process back to that uid, so the
+#      per-uid ACL applies inside the container too.
+#   2. No seat ACL (headless, or a desktop without one): the node is only
+#      group-accessible (root:dialout rw-rw----) and you reach it via dialout
+#      group membership. --userns=keep-id maps your uid but NOT your supplementary
+#      groups, so dialout is dropped (the node shows as nobody:nogroup, the
+#      namespace overflow id) and the open fails with EACCES. --group-add
+#      keep-groups keeps the host's real supplementary GIDs in the process, so the
+#      kernel still matches dialout on its DAC check and the open succeeds.
+#      Requires your host user to be in the dialout group.
+# (SELinux is the other half, handled by label=disable above.)
 serial_devices=()
 for node in /dev/ttyACM* /dev/ttyUSB*; do
   [ -e "$node" ] && serial_devices+=(--device "$node")
@@ -63,6 +74,7 @@ done
 
 exec podman run --rm --init "${tty_flags[@]}" \
   --userns=keep-id \
+  --group-add keep-groups \
   --security-opt label=disable \
   -e HOME=/tmp \
   -e ZEPHYR_BASE="$REPO_DIR/zephyr" \

@@ -115,9 +115,13 @@ out to it) and `dev.sh` passes the board's `/dev/ttyACM*` serial node in.
 ./dev.sh west flash       # flash build/zephyr/ via esptool (--esp-device /dev/ttyACM0 to pin the port)
 ```
 
-Host permissions usually need nothing: on a normal desktop, logind's `uaccess`
-ACL grants your seat user rw on the serial node, and `--userns=keep-id` maps the
-container process back to that uid. On a headless box with no seat ACL, add your
-user to the `dialout` group on the **host**. esptool auto-resets the board into
-download mode over USB-Serial/JTAG; if that ever fails, hold BOOT while tapping
-RESET, then flash.
+Host permissions: the serial node is `root:dialout rw-rw----`, so add your user
+to the `dialout` group on the **host**. `dev.sh` carries that membership into the
+container with `--group-add keep-groups`, since `--userns=keep-id` maps your uid
+but drops supplementary groups (without keep-groups the node shows as
+`nobody:nogroup` inside the container and the open fails with EACCES). On a
+desktop where logind sets a per-uid `uaccess` ACL on the node, that ACL plus
+`--userns=keep-id` would suffice on its own, but not every host has it, so the
+dialout group is the reliable path. esptool auto-resets the board into download
+mode over USB-Serial/JTAG; if that ever fails, hold BOOT while tapping RESET,
+then flash.
