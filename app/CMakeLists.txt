@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.20.0)
 find_package(Zephyr REQUIRED HINTS $ENV{ZEPHYR_BASE})
-project(hifive1_app)
+project(pump_app)
 target_sources(app PRIVATE src/main.c)
 target_sources_ifdef(CONFIG_APP_SPEAKER app PRIVATE src/speaker.c)
 target_sources_ifdef(CONFIG_APP_MOTOR app PRIVATE src/motor.c)

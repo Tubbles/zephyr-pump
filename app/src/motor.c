@@ -1,11 +1,12 @@
 /*
- * A4988 stepper driver control on the J4 header (see DESIGN.md):
- *   STEP = GPIO11 = PWM2 channel 1  -- the step pulse train,
- *   DIR  = GPIO9  (plain output)    -- rotation direction,
- *   EN   = GPIO10 (plain output)    -- active-low driver enable.
+ * A4988 stepper driver control on the XIAO ESP32-C6 header (see DESIGN.md):
+ *   STEP = D10 / GPIO18 = LEDC channel 0  -- the step pulse train,
+ *   DIR  = D9  / GPIO20 (plain output)    -- rotation direction,
+ *   EN   = D8  / GPIO19 (plain output)    -- active-low driver enable.
  *
- * Registers a "motor" shell command group for bench debugging. The PWM, DIR and
- * EN references come from the zephyr,user node in app.overlay.
+ * The pins live in app.overlay and are reached through the zephyr,user node, so
+ * this code is board-agnostic. Registers a "motor" shell command group for
+ * bench debugging.
  */
 
 #include <zephyr/kernel.h>
@@ -19,7 +20,7 @@
 
 #define MOTOR_NODE DT_PATH(zephyr_user)
 
-static const struct pwm_dt_spec step_pwm = PWM_DT_SPEC_GET(MOTOR_NODE);
+static const struct pwm_dt_spec step_pwm = PWM_DT_SPEC_GET_BY_NAME(MOTOR_NODE, step);
 static const struct gpio_dt_spec dir_line = GPIO_DT_SPEC_GET(MOTOR_NODE, dir_gpios);
 static const struct gpio_dt_spec enable_line = GPIO_DT_SPEC_GET(MOTOR_NODE, en_gpios);
 
