@@ -4,6 +4,8 @@
 #include <zephyr/drivers/led.h>
 #include <zephyr/logging/log.h>
 
+#include <app_version.h>
+
 LOG_MODULE_REGISTER(main, CONFIG_LOG_DEFAULT_LEVEL);
 
 int main(void)
@@ -19,7 +21,7 @@ int main(void)
 					    .blink_period_us = 1000000ull,
 				    }};
 
-	LOG_INF("starting");
+	LOG_INF("zephyr-pump v%s starting", APP_VERSION_STRING);
 
 	(void)led_start(&app_led);
 
