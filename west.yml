@@ -9,20 +9,25 @@ manifest:
     - name: zephyr
       remote: zephyrproject-rtos
       revision: v4.4.1
-      # ESP32-C6 (XIAO) support is in-tree EXCEPT the Espressif HAL and the
-      # 2nd-stage bootloader, which live in the hal_espressif module. So import
-      # Zephyr's own manifest but allowlist just that one module: west fetches
-      # hal_espressif at the revision Zephyr pins for v4.4.1, and none of the
-      # other ~40 HAL/fatfs/mbedTLS repos. picolibc still comes from the SDK
-      # toolchain (CONFIG_PICOLIBC_USE_TOOLCHAIN), so nothing else is needed.
-      # Importing Zephyr's manifest also registers its build/flash west
-      # extension commands, so the standalone `west-commands:` line is gone.
-      # Do NOT use an empty allowlist to mean "no modules": west reads `[]` as
-      # "no filter" and imports everything. To add another module, append its
-      # name to the allowlist below.
+      # ESP32-C6 (XIAO) support is in-tree EXCEPT a few modules we allowlist
+      # below; importing Zephyr's full manifest would also pull the ~40 other
+      # HAL/fatfs/mbedTLS repos we don't need. west fetches each allowlisted
+      # module at the revision Zephyr pins for v4.4.1:
+      #   - hal_espressif: the Espressif HAL, the ESP 2nd-stage (simple-boot)
+      #     bootloader support, and the WiFi/BT binary blobs.
+      #   - mcuboot: the MCUboot secondary bootloader. Needed for OTA / A-B slot
+      #     swapping; sysbuild builds it alongside the app. A plain simple-boot
+      #     build does not use it, but fetching is harmless when unused.
+      # picolibc still comes from the SDK toolchain
+      # (CONFIG_PICOLIBC_USE_TOOLCHAIN), so nothing else is needed. Importing
+      # Zephyr's manifest also registers its build/flash west extension commands,
+      # so the standalone `west-commands:` line is gone. Do NOT use an empty
+      # allowlist to mean "no modules": west reads `[]` as "no filter" and
+      # imports everything. To add another module, append its name below.
       import:
         name-allowlist:
           - hal_espressif
+          - mcuboot
   self:
     # The workspace topdir is the repo root; `make update` copies this file
     # into a generated, gitignored `.manifest/` git repo and runs

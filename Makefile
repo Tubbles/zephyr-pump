@@ -45,10 +45,10 @@ check-workspace:
 	@[ -d zephyr ] || { echo "error: no Zephyr workspace yet -- run './dev.sh make update' first" >&2; exit 1; }
 
 build: check-workspace ## Incremental build of app/ for the board
-	west build -b $(BOARD) app -d build
+	west build -b $(BOARD) app -d build --sysbuild
 
 pristine: check-workspace ## Clean (pristine) build of app/ for the board
-	west build -b $(BOARD) app -d build -p always
+	west build -b $(BOARD) app -d build -p always --sysbuild
 
 clean: ## Remove the build directory
 	rm -rf build

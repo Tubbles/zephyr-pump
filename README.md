@@ -4,9 +4,10 @@ Self-contained Zephyr build environment for the Seeed XIAO ESP32-C6
 (ESP32-C6, RISC-V). The git repo plus the Dockerfile fully describe the
 environment: nothing is installed on your machine except Podman.
 
-- `west.yml` pins the Zephyr revision and imports only the one module ESP32-C6
-  needs (`hal_espressif`, for the Espressif HAL and bootloader); the rest of the
-  SoC support is in-tree.
+- `west.yml` pins the Zephyr revision and imports the two modules this project
+  needs: `hal_espressif` (the Espressif HAL, ESP simple-boot bootloader support,
+  and WiFi/BT blobs) and `mcuboot` (the MCUboot bootloader, for OTA / A-B slot
+  swapping); the rest of the SoC support is in-tree.
 - `Dockerfile` bakes only the tools (west, Zephyr's Python build deps including
   esptool for flashing, the RISC-V Zephyr SDK, plus Prettier for Markdown and
   clang-format for C) into an image. The Zephyr source stays on the host.
@@ -33,7 +34,7 @@ The `Makefile` holds plain recipes; compose them with `dev.sh`:
 ./dev.sh make format                                    # format Markdown + C (Prettier, clang-format)
 ./dev.sh make BOARD=esp32c6_devkitc/esp32c6/hpcore build               # override the board
 ./dev.sh bash                                           # shell in the env
-./dev.sh west build -b xiao_esp32c6/esp32c6/hpcore app -d build  # raw west, no Makefile
+./dev.sh west build -b xiao_esp32c6/esp32c6/hpcore app -d build --sysbuild  # raw west, no Makefile
 ```
 
 `make help` lists the recipes. `make clean` is just an rm and works on the host
@@ -45,8 +46,10 @@ Zephyr's Python deps, downloads the SDK). Then run `./dev.sh make update` once
 to fetch the Zephyr source plus the Espressif binary blobs into the repo (also
 slow, also network). Later runs reuse both and are fast; the workspace and
 `build/` persist between runs, so incremental builds work (use `pristine` only
-when you want a clean rebuild). Output ends up in `build/zephyr/` (`zephyr.elf`
-and the flashable `zephyr.bin`), owned by you.
+when you want a clean rebuild). Builds run under sysbuild (MCUboot + the app), so
+output is split per image: the bootloader at `build/mcuboot/zephyr/zephyr.bin`,
+the slot-0 app at `build/app/zephyr/zephyr.signed.bin`, and the slot-1 update
+image at `build/app_slot1_variant/zephyr/zephyr.signed.bin`, all owned by you.
 
 ## Change the Zephyr version
 
@@ -69,7 +72,7 @@ esptool and `dev.sh` passes the board's `/dev/ttyACM*` serial node in.
 
 ```
 ./dev.sh make build
-./dev.sh west flash       # flashes build/zephyr/ via esptool over USB-Serial/JTAG
+./dev.sh west flash       # flashes MCUboot + app via esptool over USB-Serial/JTAG
 ```
 
 esptool auto-detects the port; if you have more than one board attached, pin it

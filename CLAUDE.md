@@ -27,7 +27,7 @@ them:
 ./dev.sh make format                             # format Markdown + C (Prettier, clang-format)
 ./dev.sh make BOARD=esp32c6_devkitc/esp32c6/hpcore build        # override board (default xiao_esp32c6/esp32c6/hpcore)
 ./dev.sh bash                                    # interactive shell in the env
-./dev.sh west build -b xiao_esp32c6/esp32c6/hpcore app -d build  # raw west, bypassing the Makefile
+./dev.sh west build -b xiao_esp32c6/esp32c6/hpcore app -d build --sysbuild  # raw west, bypassing the Makefile
 make clean                                       # just an rm; runs on the host, no dev.sh
 ./console.sh                                     # read-only serial monitor (host, 115200 baud)
 ```
@@ -39,8 +39,11 @@ near-instant once built; the first build is the slow, network-bound one
 into the repo (also slow, also network) -- required once before the first build,
 and again after any `west.yml` revision bump. Later runs reuse both. The
 workspace and `build/` persist on the host between runs (both git-ignored), so
-incremental builds work; use `pristine` for a clean rebuild. Output lands in
-`build/zephyr/` (`zephyr.elf` and the flashable `zephyr.bin`), owned by you.
+incremental builds work; use `pristine` for a clean rebuild. Builds run under
+sysbuild (MCUboot + the app), so output is split per image: the bootloader at
+`build/mcuboot/zephyr/zephyr.bin`, the slot-0 app at
+`build/app/zephyr/zephyr.signed.bin`, and the slot-1 update image at
+`build/app_slot1_variant/zephyr/zephyr.signed.bin`, all owned by you.
 
 There is no test suite or linter in this repo. Verification is building cleanly
 and (optionally) flashing + watching `console.sh` output.
@@ -51,10 +54,12 @@ Source lives on the host; only tools live in the image. The repo alone
 determines the entire environment:
 
 - `west.yml` pins the Zephyr revision and imports Zephyr's manifest filtered to
-  a single module, `hal_espressif` (the Espressif HAL + 2nd-stage bootloader
-  ESP32-C6 needs; the rest of the SoC support is in-tree). The name-allowlist
-  keeps west from fetching the other ~40 module repos; importing Zephyr's
-  manifest also registers its build/flash extension commands. An empty allowlist
+  two modules: `hal_espressif` (the Espressif HAL, ESP simple-boot bootloader
+  support, and WiFi/BT blobs) and `mcuboot` (the MCUboot secondary bootloader,
+  built by sysbuild for OTA / A-B slot swapping). The rest of the SoC support is
+  in-tree. The name-allowlist keeps west from fetching the other ~40 module
+  repos; importing Zephyr's manifest also registers its build/flash extension
+  commands. An empty allowlist
   imports everything, so don't use that to mean "none"; add another module by
   appending its name. The repo root is the west topdir (Zephyr "T2 / star
   topology" application); `make update` copies this file into a generated,
@@ -112,7 +117,7 @@ out to it) and `dev.sh` passes the board's `/dev/ttyACM*` serial node in.
 
 ```
 ./dev.sh make build       # build first (flash does not rebuild reliably on its own)
-./dev.sh west flash       # flash build/zephyr/ via esptool (--esp-device /dev/ttyACM0 to pin the port)
+./dev.sh west flash       # flash MCUboot + app via esptool (--esp-device /dev/ttyACM0 to pin the port)
 ```
 
 Host permissions: the serial node is `root:dialout rw-rw----`, so add your user
