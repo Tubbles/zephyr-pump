@@ -119,9 +119,49 @@ upstream `samples/net/wifi/shell` (console on `usb_serial`, queue size 16):
 `wifi status` reports the driver up (State: INACTIVE) and `wifi scan` returns
 real 2.4 GHz APs. So the core of #82874 is refuted / fixed for v4.4.1.
 
-Not yet tested: the `wifi connect` association + DHCP path (where #82874's
-specific "stuck at SCANNING" lived) and #86258 (CONFIG_WATCHDOG vs WiFi). Both
-need live 2.4 GHz credentials. Status: open in TODO.md.
+The `wifi connect` association + DHCP path (where #82874's "stuck at SCANNING"
+lived) is now verified too, and so is #86258; see the two sections directly
+below. Both bug reports are closed on hardware.
+
+## [wifi] [#82874] [connect] [dhcp] [verified] 2026-06-20 — full association + DHCP works
+
+The connect path #82874 called broken works end to end on this board at v4.4.1,
+console on `usb_serial`, `NET_MGMT_EVENT_QUEUE_SIZE=16`. After a cold reboot the
+link comes up from a credential persisted in flash (`wifi cred auto_connect`):
+`wifi status` reaches `State: COMPLETED` (WPA2-PSK, 2.4 GHz, WIFI 6 / 802.11ax),
+`net_dhcpv4` auto-leases an address, and `net ping` to the gateway returns 3/3.
+No "stuck at SCANNING". The DHCP exchange itself is a full DISCOVER/OFFER/REQUEST/
+ACK round-trip, so it proves real bidirectional traffic, not just a lease.
+
+## [wifi] [#86258] [watchdog] [verified] 2026-06-20 — CONFIG_WATCHDOG does not break WiFi
+
+#86258 claimed `CONFIG_WATCHDOG=y` broke WiFi (the board enables `wdt0` by
+default). Rebuilt the wifi shell sample with `CONFIG_WATCHDOG=y` (which pulls in
+`CONFIG_WDT_ESP32=y` and binds `wdt0`). `device list` shows `watchdog@60008048
+(READY)` and `wifi (READY)` at the same time, and the link still associates and
+gets a DHCP lease. So #86258 does not reproduce on v4.4.1.
+
+## [wifi] [credentials] [persistence] [security] 2026-06-20 — storing WiFi creds, and the plaintext gotcha
+
+`CONFIG_WIFI_CREDENTIALS` persists networks so you connect once and reconnect
+without re-typing. Findings on the C6:
+
+- Backend: only `WIFI_CREDENTIALS_BACKEND_SETTINGS` (settings/NVS in the
+  `storage` partition @ 0x3b0000) is usable here. The `BACKEND_PSA` protected-
+  storage option `depends on BUILD_WITH_TFM`, and TF-M is ARM TrustZone only, so
+  it is unavailable on this RISC-V part.
+- `WIFI_CREDENTIALS_MAX_ENTRIES` defaults to 2 (multiple networks supported,
+  bump as needed). `wifi cred add` stores; `wifi cred auto_connect` connects
+  from flash with no passphrase at the prompt.
+- The credential survives both a reset AND a reflash: `west flash` only writes
+  the app region (0x0..~0xc0000), leaving the `storage` partition intact, so a
+  rebuilt image still auto-connects.
+- SECURITY GOTCHA: `wifi cred list` prints the stored passphrase in PLAINTEXT.
+  There is no at-rest protection on this build (the settings/NVS copy is
+  plaintext flash, readable via `esptool read_flash`); real at-rest encryption
+  would need ESP flash encryption (eFuse), deliberately avoided. Workflow used:
+  the user types the credential into the console themselves so the password never
+  enters the assistant's context, and the assistant never runs `wifi cred list`.
 
 ## [wifi] [2.4ghz] [footprint] 2026-06-20 — WiFi facts
 
@@ -160,4 +200,7 @@ its reset is "via RTS pin".
 - WiFi verified via the upstream sample, transient mbedtls/tf-psa-crypto, not by
   enabling WiFi in the app: keeps the verification isolated and the manifest
   minimal.
+- Password hygiene for the connect test: the user enters the WiFi credential at
+  the console themselves and it persists in flash; the assistant drives every
+  test via `wifi cred auto_connect` and never runs `wifi cred list` (plaintext).
 - Commit directly to `main`, no feature branches (user preference for this repo).
