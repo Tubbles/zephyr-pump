@@ -26,6 +26,13 @@ SUGGESTIONS.md. Prefer extending an existing doc over starting a parallel one,
 and add a pointer from CLAUDE.md or the README when a newcomer should be able to
 find the new doc.
 
+## Git workflow
+
+Commit directly to `main`; this repo does not use feature branches. Committing
+and then pushing to the remote is the standing close-out step for every change:
+when a piece of work is done, commit it and push it without waiting to be asked.
+Keep commits small and focused, and never force-push.
+
 ## Build and run
 
 Everything runs inside the pinned container via `dev.sh`, which prepends the
