@@ -6,7 +6,8 @@ The commits say *what* changed; this says *what we found out* and *what we
 decided*.
 
 Grep the `[bracketed]` keywords in the headers to jump around, e.g.
-`grep -iE '\[serial\]|\[wifi\]' LOG.md`. Dates mark when something was learned.
+`grep -iE '\[serial\]|\[wifi\]' docs/LOG.md`. Dates mark when something was
+learned.
 
 ---
 
