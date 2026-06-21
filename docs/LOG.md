@@ -183,6 +183,37 @@ without re-typing. Findings on the C6:
 - Verified separately from our app (the isolated upstream sample), built as
   simple-boot. Kept apart from the OTA app on purpose.
 
+## [antenna] [wifi] [rf-switch] [gpio3] [gpio14] 2026-06-21 — Zephyr already owns the antenna switch
+
+The XIAO ESP32-C6 has an onboard ceramic antenna plus a U.FL connector for an
+external rod antenna, switched by an RF-switch IC on GPIO3 (power) and GPIO14
+(select). The sigmdel intro (point 8) shows the Arduino-core way to drive these
+(`digitalWrite(WIFI_ENABLE, LOW)` to power the switch, `WIFI_ANT_CONFIG` HIGH for
+external). In Zephyr we do NOT write that GPIO code: the upstream board already
+encapsulates it.
+
+- The board DTS carries an `rf_switch` node (`xiao_esp32c6_hpcore.dts`):
+  `enable-gpios = <&gpio0 3 GPIO_ACTIVE_LOW>` (GPIO3 LOW powers the switch),
+  `select-gpios = <&gpio0 14 GPIO_ACTIVE_HIGH>` (GPIO14 HIGH = external). This
+  matches the article's pin polarities exactly.
+- The single knob is `CONFIG_XIAO_ESP32C6_EXT_ANTENNA` (board `Kconfig`), OFF by
+  default. It is the only thing that `select`s `BOARD_LATE_INIT_HOOK`, and the
+  board `CMakeLists.txt` only compiles `board.c` when it is set. So in a default
+  build the hook never runs: GPIO3/GPIO14 are left at their reset state and the
+  onboard ceramic antenna is used. Our verified WiFi (the sections above) ran in
+  exactly this default state, so the onboard antenna needs no action.
+- To use an external U.FL antenna: add `CONFIG_XIAO_ESP32C6_EXT_ANTENNA=y` to
+  `app/prj.conf`. `board_late_init_hook()` then drives GPIO3 active (powers the
+  switch) and GPIO14 active (selects external). The article measured only ~6%
+  RSSI gain from the rod antenna, so this is a forward-looking option, not a fix.
+- Upstream quirk: because the CMake gate and the Kconfig `select` hang off the
+  same symbol, the `#else` branch in `board.c` (explicitly select the *internal*
+  antenna) is dead code: there is no supported config that runs the hook for the
+  internal antenna. Default = leave the pins alone, which works. Not our bug.
+- Forward-looking only anyway: WiFi is not in the committed app yet (verified via
+  the isolated upstream sample), so the antenna knob matters once WiFi lands AND
+  a rod antenna is attached, not before.
+
 ## [security] [signing] [efuse] [irreversible] 2026-06-20 — nothing irreversible was done
 
 Signing is deliberately left at `BOOT_SIGNATURE_TYPE_NONE` (header + SHA-256, no
