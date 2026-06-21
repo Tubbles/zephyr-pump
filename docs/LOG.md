@@ -181,7 +181,52 @@ without re-typing. Findings on the C6:
 - The WiFi shell image is ~764 KB vs our app's ~146 KB; it pulls in mbedtls +
   tf-psa-crypto + the full IP/TLS stack.
 - Verified separately from our app (the isolated upstream sample), built as
-  simple-boot. Kept apart from the OTA app on purpose.
+  simple-boot. Kept apart from the OTA app on purpose (until it landed; see the
+  "WiFi landed in the app proper" entry below).
+
+## [wifi] [app] [directxip] [autoconnect] [verified] 2026-06-21 — WiFi landed in the app proper
+
+WiFi is now built into the committed app, not a separate sample. What it took and
+what it verified:
+
+- Config (`app/prj.conf`): `CONFIG_WIFI` plus the networking/IPv4/DHCP/TCP set
+  from the verified `samples/net/wifi/shell`, and `CONFIG_WIFI_CREDENTIALS` with
+  the SETTINGS/NVS backend so a credential provisioned once over the shell
+  persists and the board reconnects unattended. `CONFIG_ESP32_WIFI_STA_AUTO_DHCPV4=y`
+  starts DHCP on association. Gated behind `CONFIG_APP_WIFI`.
+- Manifest: `mbedtls` + `tf-psa-crypto` are now COMMITTED in `west.yml` (they
+  were transient before). The WiFi driver selects MBEDTLS + PSA_CRYPTO; without
+  both modules the build dies at mbedtls's `add_subdirectory(tf-psa-crypto)`.
+- Entropy: dropped the sample's `CONFIG_TEST_RANDOM_GENERATOR` (a portability
+  fallback for boards with no hardware RNG). `CONFIG_NETWORKING` selects
+  `ENTROPY_GENERATOR`, and the board enables `trng0`, so `ENTROPY_ESP32_RNG` is
+  default-y and the real hardware TRNG feeds the crypto. Confirmed `trng0
+  (READY)` in `device list`.
+- Auto-connect (`app/src/wifi.c`): a SYS_INIT registers a WiFi event handler and
+  schedules a delayable work item that issues `NET_REQUEST_WIFI_CONNECT_STORED`,
+  retrying every 500 ms (up to ~10 s) until the interface and supplicant are
+  ready. Nothing else in the build triggers a boot-time association, so a
+  post-boot `State: COMPLETED` is attributable to this code.
+
+On-hardware verification of the COMBINED image. This is new: the earlier wifi
+sections verified the standalone sample built as simple-boot, whereas this is
+WiFi + MCUboot DirectXIP together. After `west flash` + reset, with the
+credential already in flash from the earlier session (it survives a reflash):
+
+- `device list`: `wifi (READY)` and `trng0 (READY)` alongside `ledc0` / `leds`,
+  so WiFi coexists with the motor/speaker/LED peripherals.
+- `wifi status`: `State: COMPLETED`, WPA2-PSK, WIFI 6 (802.11ax), 2.4 GHz, RSSI
+  -42 (the powered RF switch, matching the antenna [rssi] figures).
+- `net iface`: `DHCPv4 state: bound`, leased `192.168.1.27`, gateway
+  192.168.1.1, so the full path (association + DHCP) runs from boot with no
+  console interaction. `wifi scan` returned 15 APs.
+
+Footprint: the app grew from ~146 KB to ~770 KB signed, well inside the 1792 KB
+slot. Pristine build is clean, no warnings.
+
+Provisioning hygiene unchanged: the user types `wifi cred add` at the console so
+the passphrase stays out of tooling, and the assistant never runs `wifi cred
+list` (plaintext).
 
 ## [antenna] [wifi] [rf-switch] [gpio3] [gpio14] 2026-06-21 — the RF switch must be POWERED, even for the onboard antenna
 
@@ -279,8 +324,9 @@ console (those are not USB or strapping pins).
 
 Repro gotcha for next time: the measurement scripts live in `tmp/` (not
 committed). The wifi sample was flashed transiently; the board was reflashed back
-to the pump app afterward. `west.yml` still carries the transient `mbedtls` +
-`tf-psa-crypto` entries the wifi build needs; they remain uncommitted.
+to the pump app afterward. (Update: WiFi has since landed in the app and the
+`mbedtls` + `tf-psa-crypto` manifest entries are now committed, no longer
+transient. See the "WiFi landed in the app proper" entry above.)
 
 ## [security] [signing] [efuse] [irreversible] 2026-06-20 — nothing irreversible was done
 

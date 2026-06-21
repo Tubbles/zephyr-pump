@@ -90,12 +90,13 @@ Source lives on the host; only tools live in the image. The repo alone
 determines the entire environment:
 
 - `west.yml` pins the Zephyr revision and imports Zephyr's manifest filtered to
-  two modules: `hal_espressif` (the Espressif HAL, ESP simple-boot bootloader
-  support, and WiFi/BT blobs) and `mcuboot` (the MCUboot secondary bootloader,
-  built by sysbuild for OTA / A-B slot swapping). The rest of the SoC support is
-  in-tree. The name-allowlist keeps west from fetching the other ~40 module
-  repos; importing Zephyr's manifest also registers its build/flash extension
-  commands. An empty allowlist
+  four modules: `hal_espressif` (the Espressif HAL, ESP simple-boot bootloader
+  support, and WiFi/BT blobs), `mcuboot` (the MCUboot secondary bootloader,
+  built by sysbuild for OTA / A-B slot swapping), and `mbedtls` + `tf-psa-crypto`
+  (the crypto stack the WiFi driver selects via MBEDTLS + PSA_CRYPTO). The rest
+  of the SoC support is in-tree. The name-allowlist keeps west from fetching the
+  other ~40 module repos; importing Zephyr's manifest also registers its
+  build/flash extension commands. An empty allowlist
   imports everything, so don't use that to mean "none"; add another module by
   appending its name. The repo root is the west topdir (Zephyr "T2 / star
   topology" application); `make update` copies this file into a generated,

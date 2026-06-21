@@ -28,6 +28,12 @@ manifest:
         name-allowlist:
           - hal_espressif
           - mcuboot
+          # WiFi crypto stack: the ESP32 WiFi driver selects MBEDTLS +
+          # PSA_CRYPTO, and mbedtls's CMakeLists does add_subdirectory(
+          # tf-psa-crypto), which fails to configure until that split-out repo
+          # is also fetched. Both are required by CONFIG_WIFI in app/prj.conf.
+          - mbedtls
+          - tf-psa-crypto
   self:
     # The workspace topdir is the repo root; `make update` copies this file
     # into a generated, gitignored `.manifest/` git repo and runs

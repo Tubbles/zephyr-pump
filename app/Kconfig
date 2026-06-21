@@ -30,4 +30,16 @@ config APP_ANTENNA
 	  the onboard antenna, reusing the board's rf_switch devicetree node. No
 	  effect unless the radio is used. See docs/LOG.md [antenna].
 
+config APP_WIFI
+	bool "Auto-connect to a stored WiFi network at boot"
+	depends on WIFI && NETWORKING && WIFI_CREDENTIALS_CONNECT_STORED
+	help
+	  At boot, request a connection to a network whose credentials are
+	  stored in flash (NET_REQUEST_WIFI_CONNECT_STORED), retrying until the
+	  WiFi interface is ready. Provision the credential once over the shell
+	  ("wifi cred add ..."); it persists in the storage partition and the
+	  board reconnects automatically on every reboot. The "wifi" shell
+	  command group is still available for manual control. Lives in
+	  app/src/wifi.c. See docs/LOG.md [wifi].
+
 source "Kconfig.zephyr"

@@ -201,6 +201,31 @@ take it directly, but a low-impedance coil speaker draws more current than a GPI
 can source, so put a small transistor/MOSFET (or a tiny amp) between the pin and
 a coil speaker.
 
+## WiFi (implemented)
+
+The on-chip 2.4 GHz radio runs in station mode and auto-connects at boot to a
+network whose credential is stored in flash. Enabled by `CONFIG_APP_WIFI` plus
+the WiFi/networking stack in `app/prj.conf`; the connect logic lives in
+`app/src/wifi.c`.
+
+- **Provision once, reconnect forever.** Add a network over the shell:
+  `wifi cred add -s <ssid> -k 1 -p <passphrase>` (key type 1 = WPA2-PSK). It
+  persists in the `storage` flash partition (settings/NVS backend), survives a
+  reset and a reflash (`west flash` leaves `storage` intact), and the board
+  rejoins it on every boot with no console interaction.
+- **Auto-connect.** At boot `wifi.c` issues `NET_REQUEST_WIFI_CONNECT_STORED`,
+  retrying until the interface and supplicant are ready; association and DHCP
+  then run asynchronously. The `wifi` shell group stays available for manual
+  control (`wifi status`, `wifi scan`, `wifi connect`, ...).
+- **Antenna.** WiFi rides on the powered RF switch from `app/src/antenna.c`;
+  without it the radio runs ~17-20 dB down (see docs/LOG.md [antenna]).
+- **Footprint.** ~770 KB signed (vs ~146 KB without WiFi), inside the 1792 KB
+  slot. Pulls in mbedtls + tf-psa-crypto (now committed in `west.yml`).
+
+> Security: there is no at-rest encryption of the stored credential, and
+> `wifi cred list` prints the passphrase in plaintext. Provision it yourself at
+> the console; do not paste it into tooling.
+
 ## Quick pin summary
 
 ```
@@ -217,4 +242,5 @@ spi2 is disabled in app/app.overlay to free D8-D10; re-pin there if needed.
 
 - Pump head and how the stepper couples to it (microstepping, steps per mL).
 - Whether battery / temperature monitoring is needed, and ADC-divider vs I²C ADS1115.
-- Whether to use the radio for remote control or telemetry.
+- WiFi is enabled and auto-connects (see "WiFi"); what to run over it (a remote
+  control protocol, a telemetry sink) is still open.
