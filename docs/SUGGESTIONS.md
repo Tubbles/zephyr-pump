@@ -51,6 +51,15 @@ Generating an Ed25519 key with `imgtool` and setting
 `SB_CONFIG_BOOT_SIGNATURE_TYPE_ED25519` + a key file would make the update path
 authentic. Skipped for the bring-up; needed before trusting OTA.
 
+## Make the headless device discoverable on the network
+
+Now that the app auto-connects and DHCP-leases an address, that address is only
+visible over the console (`net iface`), which defeats the point of a headless
+WiFi device. A stable hostname plus mDNS (`CONFIG_NET_HOSTNAME_ENABLE` +
+`CONFIG_MDNS_RESPONDER`) would let a host reach it by name without first reading
+the IP off the serial port. This becomes a prerequisite the moment the radio is
+used for control, telemetry, or the WiFi/SMP OTA path above.
+
 ## A reliable boot-capture helper for the native USB-Serial/JTAG
 
 `console.sh` works for steady-state monitoring, but the C6's USB-Serial/JTAG
