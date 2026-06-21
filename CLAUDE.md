@@ -26,6 +26,15 @@ SUGGESTIONS.md. Prefer extending an existing doc over starting a parallel one,
 and add a pointer from CLAUDE.md or the README when a newcomer should be able to
 find the new doc.
 
+Close out every work item by documenting it before you commit, the same way the
+commit and push is part of finishing the work. Put the learnings, gotchas, dead
+ends, verified facts, and the reasoning behind decisions in `docs/LOG.md`: the
+git diff records what changed, the log records what you found out and why. Record
+new ideas you noticed in `docs/SUGGESTIONS.md`. Close finished items in `TODO.md`
+and keep the unfinished ones. Update `CLAUDE.md`, the `README`, or your memory
+when a convention, build step, or durable preference changed. The documentation
+pass is part of the work, not an optional extra.
+
 ## Git workflow
 
 Commit directly to `main`; this repo does not use feature branches. Committing
