@@ -42,6 +42,11 @@ and then pushing to the remote is the standing close-out step for every change:
 when a piece of work is done, commit it and push it without waiting to be asked.
 Keep commits small and focused, and never force-push.
 
+When you notice the user has added content to a tracked doc, most commonly the
+`## User written inbox` section of `TODO.md`, commit and push it too, in its own
+commit, so their additions reach the remote and are never left sitting
+uncommitted on the host.
+
 ## Build and run
 
 Everything runs inside the pinned container via `dev.sh`, which prepends the
