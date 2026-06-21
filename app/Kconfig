@@ -19,4 +19,15 @@ config APP_MOTOR
 	  channel 0 (the step pulse train), DIR is D1 / GPIO1, and EN is D2 /
 	  GPIO2 (active-low). The pins are set in app.overlay. See DESIGN.md.
 
+config APP_ANTENNA
+	bool "Power the RF switch and select the onboard antenna"
+	depends on GPIO
+	help
+	  The XIAO ESP32-C6 routes both the onboard antenna and the U.FL
+	  connector through an RF switch (enable GPIO3, select GPIO14). A default
+	  build leaves the switch unpowered, so the radio runs on a degraded
+	  leakage path. This drives GPIO3 to power the switch and GPIO14 to select
+	  the onboard antenna, reusing the board's rf_switch devicetree node. No
+	  effect unless the radio is used. See docs/LOG.md [antenna].
+
 source "Kconfig.zephyr"

@@ -221,9 +221,15 @@ the Kconfig `select` hang off the same symbol, the `#else` (onboard) branch in
 onboard antenna": the only way to power the switch is `EXT_ANTENNA=y`, which also
 forces the external U.FL antenna. To run the onboard antenna at full performance
 you must drive the pins yourself: GPIO3 active (power) + GPIO14 inactive
-(onboard), e.g. an app-side init reusing the `rf_switch` DT node. Filed in
-TODO.md; deferred because WiFi is not in the committed app yet (verified via the
-isolated upstream sample), so it only bites once the radio is actually used.
+(onboard), reusing the board's `rf_switch` DT node.
+
+Implemented in `app/src/antenna.c` (`CONFIG_APP_ANTENNA`, on in `prj.conf`): a
+SYS_INIT at APPLICATION level configures `enable_gpios` (GPIO3) OUTPUT_ACTIVE
+(active-low, so driven low = switch powered) and `select_gpios` (GPIO14)
+OUTPUT_INACTIVE (active-high, so driven low = onboard antenna). It runs at every
+boot regardless of whether the radio is used; the cost is two GPIO writes plus
+the switch IC's quiescent current, so there is no reason to defer it until WiFi
+lands. Done eagerly so the antenna is always correct once the radio is enabled.
 
 Separately, the ~6% RSSI figure in the article is the external-rod-vs-onboard
 delta with the switch powered in both cases. That is a smaller, different axis
