@@ -19,6 +19,7 @@
 #include <zephyr/net/net_if.h>
 #include <zephyr/net/net_mgmt.h>
 #include <zephyr/net/wifi_mgmt.h>
+#include <zephyr/net/hostname.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(wifi, CONFIG_LOG_DEFAULT_LEVEL);
@@ -30,11 +31,45 @@ LOG_MODULE_REGISTER(wifi, CONFIG_LOG_DEFAULT_LEVEL);
 static struct net_mgmt_event_callback wifi_cb;
 static int connect_tries;
 
+/* Append the last two MAC bytes (as hex) to the base hostname, e.g. "pump6820",
+ * so two boards running this firmware get distinct names. Runs once, before the
+ * connect, so DHCP (option 12) and mDNS both advertise the final name. The MAC
+ * is the wlan0 link address, valid as soon as the interface exists.
+ */
+static void apply_hostname(struct net_if *iface)
+{
+	static bool done;
+
+	if (done) {
+		return;
+	}
+
+	struct net_linkaddr *lladdr = net_if_get_link_addr(iface);
+
+	if (lladdr == NULL || lladdr->len < 2) {
+		return;
+	}
+
+	char name[sizeof(CONFIG_NET_HOSTNAME) + 4];
+	int len = snprintk(name, sizeof(name), "%s%02x%02x", CONFIG_NET_HOSTNAME,
+			   lladdr->addr[lladdr->len - 2], lladdr->addr[lladdr->len - 1]);
+
+	if (net_hostname_set(name, len) == 0) {
+		done = true;
+		LOG_INF("hostname %s", name);
+	}
+}
+
 static void connect_work_handler(struct k_work *work)
 {
 	ARG_UNUSED(work);
 
 	struct net_if *iface = net_if_get_wifi_sta();
+
+	if (iface != NULL) {
+		apply_hostname(iface);
+	}
+
 	int ret = iface ? net_mgmt(NET_REQUEST_WIFI_CONNECT_STORED, iface, NULL, 0) : -ENODEV;
 
 	if (ret == 0) {

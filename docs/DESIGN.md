@@ -217,11 +217,12 @@ the WiFi/networking stack in `app/prj.conf`; the connect logic lives in
   retrying until the interface and supplicant are ready; association and DHCP
   then run asynchronously. The `wifi` shell group stays available for manual
   control (`wifi status`, `wifi scan`, `wifi connect`, ...).
-- **Reachable by name.** An mDNS responder (`CONFIG_MDNS_RESPONDER`, hostname
-  `pump`) answers `pump.local`, so the headless board is reachable without
-  chasing the DHCP lease and without the router. Setting the hostname also makes
-  the DHCP client advertise `pump` (option 12), so a cooperating router serves
-  `pump` / `pump.<domain>` on top.
+- **Reachable by name.** An mDNS responder (`CONFIG_MDNS_RESPONDER`) answers
+  `<hostname>.local`. The hostname is the base `pump` plus the last two MAC
+  bytes in hex, set at boot in `app/src/wifi.c` (e.g. `pump6820`), so multiple
+  boards stay distinct. Setting the hostname also makes the DHCP client
+  advertise it (option 12), so a cooperating router serves the bare name /
+  `<name>.<domain>` on top. mDNS needs no router and no DHCP-lease lookup.
 - **Antenna.** WiFi rides on the powered RF switch from `app/src/antenna.c`;
   without it the radio runs ~17-20 dB down (see docs/LOG.md [antenna]).
 - **Footprint.** ~835 KB signed (vs ~146 KB without WiFi; ~67 KB of that is

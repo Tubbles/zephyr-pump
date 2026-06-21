@@ -262,6 +262,19 @@ the board from the plain Host Name option (12) alone, so option 81 was not
 needed here. Sending option 81 would mean patching the client; it is not a
 Kconfig switch.
 
+Refinement (same day): the hostname now carries the last two MAC bytes as hex so
+multiple boards get distinct names. `CONFIG_NET_HOSTNAME_DYNAMIC=y` plus a small
+`apply_hostname()` in `app/src/wifi.c` (set once, when the interface MAC is up,
+before associating) turns the base `pump` into e.g. `pump6820` for MAC ...68:20.
+The base prefix stays `CONFIG_NET_HOSTNAME`; the code reads the wlan0 link
+address and appends `addr[len-2]`/`addr[len-1]`. Note the raw bytes are 0x68
+0x20 and 0x20 is a space (invalid in a hostname), so they are rendered as hex,
+the same scheme as Zephyr's `NET_HOSTNAME_UNIQUE` (which appends all six bytes;
+we wanted only two, hence the manual set rather than that option). Verified after
+reflash: `pump6820.local` (mDNS) and, once the router re-registered,
+`pump6820` / `pump6820.localdomain` plus reverse PTR all track the new value,
+and the old `pump` record aged out.
+
 ## [antenna] [wifi] [rf-switch] [gpio3] [gpio14] 2026-06-21 — the RF switch must be POWERED, even for the onboard antenna
 
 The point of the sigmdel intro (point 8) is the opposite of "leave it alone":
