@@ -54,6 +54,17 @@ Why both work with the container: `dev.sh` uses `--userns=keep-id` (maps your
 uid in, so a per-uid ACL applies inside) and `--group-add keep-groups` (carries
 supplementary groups in, so dialout applies inside).
 
+## [serial] [console] [interactive] [miniterm] 2026-06-20 — typing into the shell needs a RW terminal
+
+`console.sh` is read-only (just `stty` + `cat`), fine for monitoring but you
+cannot type into it. To send shell commands interactively (e.g. `wifi cred add`,
+which we deliberately ran by hand so the passphrase stayed off-host-tooling), use
+an interactive terminal. On this host only `pyserial-miniterm` is installed:
+`pyserial-miniterm /dev/ttyACM0 115200`, quit with Ctrl-]. The Zephyr shell
+echoes typed characters back over the wire, so keep local echo off (miniterm's
+default) to avoid doubled input. Only one reader can own the CDC-ACM node at a
+time, so quit miniterm before any host-side capture/poke, and vice versa.
+
 ## [workspace] [build-dir] [stale-cache] [hifive1] 2026-06-20 — build/ was a foreign leftover
 
 The first sysbuild failed with `Not a file: /home/tubbles/dev/zephyr-hifive1/
