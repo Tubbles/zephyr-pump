@@ -235,6 +235,53 @@ Separately, the ~6% RSSI figure in the article is the external-rod-vs-onboard
 delta with the switch powered in both cases. That is a smaller, different axis
 than powered-vs-unpowered, and not our concern (we use the onboard antenna).
 
+## [antenna] [wifi] [rssi] [measured] 2026-06-21 — powering the switch is worth ~18 dB, not 6%
+
+Measured the actual RSSI gain on hardware, and it is large: powering the RF
+switch lifts the onboard antenna by roughly **17 to 20 dB** on reliably-seen APs
+(up to ~23 dB on weak ones). That dwarfs the article's ~6% internal-vs-external
+figure: the powered-vs-unpowered axis is the one that matters, not the antenna
+choice. An unpowered RF switch sits in its high-isolation off-state, so only
+leakage gets through, which is exactly that much loss.
+
+Method (a clean within-boot A/B/C at a fixed position, no credentials needed):
+built the upstream `samples/net/wifi/shell` with `CONFIG_GPIO_SHELL=y`, then over
+the console drove the antenna pins live between batches of `wifi scan` (12 scans
+per phase, RSSI averaged per BSSID so per-beacon noise washes out and each AP is
+its own control):
+
+- A: pins untouched (switch unpowered, the real default)
+- B: `gpio set gpio0 3 0` + `gpio set gpio0 14 0` (switch powered + onboard,
+  i.e. exactly what `antenna.c` does)
+- C: `gpio set gpio0 3 1` (switch unpowered again, onboard select held)
+
+Mean RSSI (dBm), same boot, same spot:
+
+| AP (BSSID)              | A unpwr | B powered | C unpwr | B-A   |
+| ----------------------- | ------- | --------- | ------- | ----- |
+| Monkey_Mesh (..2B:8E:0A)| -63.2   | -43.0     | -63.1   | +20.2 |
+| Blizzards   (..24:A7:76)| -69.0   | -50.2     | -69.1   | +18.8 |
+| OWNIT       (..DF:3A:A3)| -76.4   | -59.2     | -77.7   | +17.2 |
+| Kara_24GHz  (..64:46:E1)| -95.4   | -72.5     | -95.1   | +22.9 |
+| Monkey_Mesh (..2C:0D:12)| -92.3   | -75.3     | -92.3   | +17.0 |
+
+The C column is the proof: driving GPIO3 back high returns every AP to within
+~1 dB of its A baseline, so the swing is the switch power and not drift or someone
+walking past. With the switch powered, ~15 extra weak APs (-88 to -96 dBm) rose
+above the detection floor that were invisible unpowered: independent
+corroboration of the gain.
+
+On-hardware confirmation of the app path: after reflashing the pump app, the boot
+log shows `<inf> antenna: RF switch powered, onboard antenna selected` ahead of
+main's banner, with no error, so `antenna_init` (SYS_INIT APPLICATION) runs and
+the GPIO configures succeed. Driving GPIO3/GPIO14 does not disturb the USB-JTAG
+console (those are not USB or strapping pins).
+
+Repro gotcha for next time: the measurement scripts live in `tmp/` (not
+committed). The wifi sample was flashed transiently; the board was reflashed back
+to the pump app afterward. `west.yml` still carries the transient `mbedtls` +
+`tf-psa-crypto` entries the wifi build needs; they remain uncommitted.
+
 ## [security] [signing] [efuse] [irreversible] 2026-06-20 — nothing irreversible was done
 
 Signing is deliberately left at `BOOT_SIGNATURE_TYPE_NONE` (header + SHA-256, no
