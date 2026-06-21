@@ -217,10 +217,16 @@ the WiFi/networking stack in `app/prj.conf`; the connect logic lives in
   retrying until the interface and supplicant are ready; association and DHCP
   then run asynchronously. The `wifi` shell group stays available for manual
   control (`wifi status`, `wifi scan`, `wifi connect`, ...).
+- **Reachable by name.** An mDNS responder (`CONFIG_MDNS_RESPONDER`, hostname
+  `pump`) answers `pump.local`, so the headless board is reachable without
+  chasing the DHCP lease and without the router. Setting the hostname also makes
+  the DHCP client advertise `pump` (option 12), so a cooperating router serves
+  `pump` / `pump.<domain>` on top.
 - **Antenna.** WiFi rides on the powered RF switch from `app/src/antenna.c`;
   without it the radio runs ~17-20 dB down (see docs/LOG.md [antenna]).
-- **Footprint.** ~770 KB signed (vs ~146 KB without WiFi), inside the 1792 KB
-  slot. Pulls in mbedtls + tf-psa-crypto (now committed in `west.yml`).
+- **Footprint.** ~835 KB signed (vs ~146 KB without WiFi; ~67 KB of that is
+  mDNS), inside the 1792 KB slot. Pulls in mbedtls + tf-psa-crypto (now
+  committed in `west.yml`).
 
 > Security: there is no at-rest encryption of the stored credential, and
 > `wifi cred list` prints the passphrase in plaintext. Provision it yourself at

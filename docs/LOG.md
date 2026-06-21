@@ -228,6 +228,40 @@ Provisioning hygiene unchanged: the user types `wifi cred add` at the console so
 the passphrase stays out of tooling, and the assistant never runs `wifi cred
 list` (plaintext).
 
+## [mdns] [hostname] [dhcp] [fqdn] [verified] 2026-06-21 — name resolution: mDNS, and the router registers the DHCP hostname
+
+The board is headless, so it needs a *name*, not just the DHCP-leased IP. Added
+mDNS, and in the process found the router resolves it over plain DNS too.
+
+mDNS (`app/prj.conf`): `CONFIG_MDNS_RESPONDER=y` plus `CONFIG_NET_HOSTNAME_ENABLE=y`
++ `CONFIG_NET_HOSTNAME="pump"` (the responder *depends on* a hostname and answers
+`<hostname>.local`). It auto-starts via SYS_INIT, so no app code. It pulls in
+IGMP + the sockets service, ~67 KB (app ~770 -> ~835 KB signed, still well
+inside the 1792 KB slot). Skipped `MDNS_RESPONDER_PROBE` (experimental, drags in
+the connection manager + resolvers) and `NET_HOSTNAME_UNIQUE` (one board, plain
+`pump.local` reads better than a MAC-suffixed name).
+
+Verified on hardware from a host running avahi: `getent hosts pump.local` ->
+`192.168.1.27`, `ping pump.local` 2/2. mDNS is peer-to-peer multicast, so this
+works with no router cooperation.
+
+Bonus finding: setting a real hostname also makes the DHCP client advertise it
+(option 12), and on this network the router now registers the board in its own
+DNS: `pump.localdomain` -> 192.168.1.27 (forward AND reverse PTR), and bare
+`pump` resolves via the `localdomain` search suffix. So there are now three ways
+to reach it: `pump.local` (mDNS), `pump` / `pump.localdomain` (router DNS), and
+the raw IP. (Earlier, with the default hostname `zephyr`, the router showed
+NXDOMAIN; between the checks the board also re-did DHCP from a fresh boot, so the
+cause, a generic-name filter vs a stale lease, is unconfirmed and now moot.)
+
+[fqdn] No DHCP Client FQDN (option 81, RFC 4702) is involved. Zephyr v4.4.1's
+DHCPv4 client has no FQDN support at all: the option table in
+`subsys/net/lib/dhcpv4/dhcpv4_internal.h` has HOST_NAME=12 and DOMAIN_NAME=15
+but no 81, and nothing under `subsys/net/` references it. The router registered
+the board from the plain Host Name option (12) alone, so option 81 was not
+needed here. Sending option 81 would mean patching the client; it is not a
+Kconfig switch.
+
 ## [antenna] [wifi] [rf-switch] [gpio3] [gpio14] 2026-06-21 — the RF switch must be POWERED, even for the onboard antenna
 
 The point of the sigmdel intro (point 8) is the opposite of "leave it alone":
