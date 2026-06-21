@@ -30,8 +30,8 @@ Close out every work item by documenting it before you commit, the same way the
 commit and push is part of finishing the work. Put the learnings, gotchas, dead
 ends, verified facts, and the reasoning behind decisions in `docs/LOG.md`: the
 git diff records what changed, the log records what you found out and why. Record
-new ideas you noticed in `docs/SUGGESTIONS.md`. Close finished items in `TODO.md`
-and keep the unfinished ones. Update `CLAUDE.md`, the `README`, or your memory
+new ideas you noticed in `docs/SUGGESTIONS.md`. Delete finished items from `TODO.md`
+once their record is in `docs/LOG.md`, and keep the unfinished ones. Update `CLAUDE.md`, the `README`, or your memory
 when a convention, build step, or durable preference changed. The documentation
 pass is part of the work, not an optional extra.
 
