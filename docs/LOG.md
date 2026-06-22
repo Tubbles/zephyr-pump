@@ -504,3 +504,10 @@ absolute-addressed code is correct from either slot. PIC is orthogonal to the sl
 problem anyway: PIC concerns the VIRTUAL address varying (it does not here), while
 the slot dependency is the PHYSICAL flash offset fed to the MMU. Compiling PIC
 would neither be needed nor remove the two-variant requirement.
+
+**Decision (2026-06-22):** stay on DirectXIP for the OTA path rather than switch to
+a swap mode. The update feed carries both slot variants and the device installs
+the one for its inactive slot (it knows its own slot from its compiled-in
+`CONFIG_FLASH_LOAD_OFFSET`). Accepts shipping two near-identical artifacts to keep
+the no-copy / no-wear boot; the swap mode's single-artifact simplicity was judged
+not worth the per-update copy.
