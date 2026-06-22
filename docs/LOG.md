@@ -511,3 +511,35 @@ the one for its inactive slot (it knows its own slot from its compiled-in
 `CONFIG_FLASH_LOAD_OFFSET`). Accepts shipping two near-identical artifacts to keep
 the no-copy / no-wear boot; the swap mode's single-artifact simplicity was judged
 not worth the per-update copy.
+
+## [dns] [resolver] [dhcp] [ota] [footprint] 2026-06-22 — DNS resolver enabled for outbound name resolution
+
+To reach an internet host (the planned GitHub Pages OTA endpoint) the board needs
+real DNS, which it did not have. The mDNS responder we already run answers inbound
+`<name>.local` queries and is local-only; it cannot resolve an internet name.
+
+Enabled in `app/prj.conf`: `CONFIG_DNS_RESOLVER=y` (depends on NET_NATIVE; selects
+NET_SOCKETS / NET_SOCKETS_SERVICE / CRC, all already present, so the resolver is
+the only real addition). `CONFIG_NET_DHCPV4_OPTION_DNS_ADDRESS=y` is default-y once
+the resolver is on (pinned for clarity): it makes the DHCPv4 client save the DNS
+servers the router advertises (DHCP option 6) into the resolver's default context.
+So there is no static server list — the board uses whatever the router hands out,
+the same way it already takes its IP and gateway from DHCP.
+
+Build (verified): pristine build clean, all three images (app, mcuboot,
+app_slot1_variant). The only Kconfig notice is the pre-existing, DNS-unrelated
+`MCUBOOT_UPDATE_FOOTER_SIZE` one. Footprint grew only ~1.4 KB (855148 → 856540 B
+signed) because WiFi + mDNS already dragged in the sockets/IP stack; 856 KB is
+~46 % of the 1792 KB slot (~955 KB headroom). Config defaults landed as
+`DNS_RESOLVER_MAX_SERVERS=1` and `DNS_NUM_CONCUR_QUERIES=1` — one server resolves a
+single host fine, but there is no fallback if the first advertised server is
+unreachable (bump MAX_SERVERS if that bites).
+
+API path for the OTA client (later): the HTTP client takes a pre-connected socket
+(`http_client_req(int sock, ...)`), so it does NOT resolve names. Resolve with
+`getaddrinfo()` (or async `dns_get_addr_info()`), then `socket()` + `connect()`,
+then hand the fd to the HTTP client.
+
+NOT yet verified on hardware. Check (needs a flash + console): `net dns
+<an-internet-name>` should return an A record via the router's DNS server. Tracked
+in TODO.md until done.

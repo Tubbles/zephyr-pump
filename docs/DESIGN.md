@@ -223,11 +223,17 @@ the WiFi/networking stack in `app/prj.conf`; the connect logic lives in
   boards stay distinct. Setting the hostname also makes the DHCP client
   advertise it (option 12), so a cooperating router serves the bare name /
   `<name>.<domain>` on top. mDNS needs no router and no DHCP-lease lookup.
+- **Outbound name resolution.** A DNS resolver (`CONFIG_DNS_RESOLVER`) resolves
+  internet hostnames for the planned OTA image fetch, taking its servers from
+  DHCP (option 6, `CONFIG_NET_DHCPV4_OPTION_DNS_ADDRESS`). It is separate from the
+  mDNS responder, which only answers inbound `.local` queries and cannot resolve
+  an internet name. Verify with the `net dns <name>` shell command. See
+  docs/LOG.md [dns].
 - **Antenna.** WiFi rides on the powered RF switch from `app/src/antenna.c`;
   without it the radio runs ~17-20 dB down (see docs/LOG.md [antenna]).
-- **Footprint.** ~835 KB signed (vs ~146 KB without WiFi; ~67 KB of that is
-  mDNS), inside the 1792 KB slot. Pulls in mbedtls + tf-psa-crypto (now
-  committed in `west.yml`).
+- **Footprint.** ~836 KB signed (vs ~146 KB without WiFi; ~67 KB of that is
+  mDNS, ~1.4 KB the DNS resolver), inside the 1792 KB slot. Pulls in mbedtls +
+  tf-psa-crypto (now committed in `west.yml`).
 
 > Security: there is no at-rest encryption of the stored credential, and
 > `wifi cred list` prints the passphrase in plaintext. Provision it yourself at
