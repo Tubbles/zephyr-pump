@@ -478,3 +478,29 @@ for the primary slot, written to the secondary, and MCUboot swaps it into primar
 before running — one binary, at the cost of a per-update copy (boot-time swap,
 flash wear, and it uses the otherwise-idle 124 KB `scratch` partition). That copy
 cost is exactly what DirectXIP was chosen to avoid.
+
+**Why not compute the offset at runtime?** A port design choice, not a hardware
+limit. The XIP MMU is programmed by the APP (`map_rom_segments`), not by MCUboot:
+MCUboot only copies the RAM segments using the runtime slot base (`fap->fa_off`)
+and jumps to the IRAM entry, after which the app maps its own IROM/DROM. By then
+the app has only its compile-time `PART_OFFSET`
+(`DT_CHOSEN(zephyr_code_partition)`, `loader.c:90,112,115`) and does not know which
+slot MCUboot actually picked — MCUboot knew (`fap->fa_off`) but does not pass it
+on. The app cannot easily infer it either: its entry runs from IRAM (a
+slot-independent PC) with XIP not yet mapped. Making one image work in both slots
+would mean MCUboot handing the chosen slot base to the app (RTC RAM / a fixed
+location) and the app mapping XIP from `runtime_base + relative_offset`. That
+handoff is not implemented, and the rescan block (`#ifndef CONFIG_BOOTLOADER_MCUBOOT`)
+does not help — it corrects elf2image offset drift within one known partition, not
+slot selection. Upstream has little reason to add it: DirectXIP is per-slot-images
+by design (mandatory on non-MMU MCUs, where there is no remap at all), and here
+the two variants cost ~nothing (2 bytes).
+
+**No PIC.** The app is NOT position-independent, and does not need to be. The ELF
+is `ET_EXEC` (fixed address), with no PIE/PIC Kconfig and no GOT/dynamic section;
+entry and all vaddrs are absolute. The MMU presents whichever slot at the same
+fixed vaddrs (IROM 0x42000000, DROM 0x42800000, IRAM 0x40800000), so
+absolute-addressed code is correct from either slot. PIC is orthogonal to the slot
+problem anyway: PIC concerns the VIRTUAL address varying (it does not here), while
+the slot dependency is the PHYSICAL flash offset fed to the MMU. Compiling PIC
+would neither be needed nor remove the two-variant requirement.
