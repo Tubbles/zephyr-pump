@@ -407,3 +407,74 @@ its reset is "via RTS pin".
   the console themselves and it persists in flash; the assistant drives every
   test via `wifi cred auto_connect` and never runs `wifi cred list` (plaintext).
 - Commit directly to `main`, no feature branches (user preference for this repo).
+
+## [directxip] [slots] [mmu] [xip] [ram] [ota] [verified] 2026-06-22 — DirectXIP images are slot-specific; the MMU does NOT make one binary work in both slots
+
+Question raised while planning OTA: the C6 runs XIP from flash through an MMU, so
+does the MMU remap a single image to whichever slot, removing the need for
+slot-specific builds? Traced the code and the binaries: no. Under MCUboot an image
+only runs correctly from the slot it was built for. Detail, because the
+RAM-vs-flash split is the crux:
+
+**What a slot holds.** Each app slot (image-0 @ 0x20000, image-1 @ 0x1e0000,
+1792 KB each) holds a COMPLETE, independent firmware image. A/B duplicates the
+whole image, every section, once per slot — the two slots share nothing. Same for
+the LP core (image-0-lpcore / image-1-lpcore, 32 KB each). Everything else in the
+flash map is single-instance and shared across both slots: `mcuboot`, `sys`,
+`storage` (NVS), `scratch`, `coredump`. That is why the WiFi credential and any
+future config in the storage/NVS partition survive an A/B switch — they live
+outside the slots.
+
+**What one image is made of** (ELF program headers; sizes for our ~835 KB build):
+
+- IRAM (~55 KB) + DRAM (~15 KB): linked at SRAM vaddrs (0x40800000…). At boot the
+  bootloader COPIES these from the slot's flash into the single on-chip SRAM, then
+  jumps to the entry point (which lives in IRAM). SRAM is one shared hardware
+  resource, NOT duplicated per slot; whichever image runs copies its own IRAM/DRAM
+  into it.
+- IROM (~524 KB) + DROM (~131 KB): linked at flash-XIP vaddrs (0x42000000 IROM,
+  0x42800000 DROM). These are NOT copied. The MMU maps the slot's flash directly
+  into the instruction/data address space and the CPU executes/reads them in place
+  (XIP). This is ~80 % of the image.
+
+**Why the image is slot-bound despite identical code:**
+
+- The two build variants (`build/app` = slot0, `build/app_slot1_variant` = slot1)
+  are byte-identical except for 2 content bytes (`cmp` on the unsigned `.bin`: 2
+  diffs; +32 on the signed `.bin` for the SHA-256 those 2 bytes change). The ELFs
+  are fully identical — same entry 0x408033f8, same vaddrs, same paddrs. So the
+  code is position-identical; it is NOT "linked for slot1".
+- Those 2 bytes are `irom_flash_offset` and `drom_flash_offset` in
+  `esp_image_load_header_t` (`bootloader/mcuboot/boot/espressif/hal/include/esp_mcuboot_image.h:33,36`).
+  They hold ABSOLUTE flash addresses: slot0 0x40000/0xd0000, slot1
+  0x200000/0x290000 (delta 0x1c0000 = the slot0→slot1 distance = build-time
+  `FLASH_LOAD_OFFSET` + the image-relative segment offset).
+- The RAM segments are slot-INDEPENDENT: the bootloader loads them with the
+  runtime slot base (`load_segment` uses `fap->fa_off + flash_offset`, so the
+  iram/dram offsets are image-relative — which is why they are NOT among the 2
+  differing bytes). See `modules/hal/espressif/zephyr/port/boot/esp_image_loader.c:189-196`.
+- The XIP segments are slot-BOUND: `zephyr/soc/espressif/common/loader.c`
+  `map_rom_segments()` programs the flash MMU from `map->irom_flash_offset` /
+  `drom_flash_offset` (`loader.c:235-239`), and those come from a build-time
+  constant (`loader.c:110-115`: `PART_OFFSET + _image_irom_start`). The block that
+  would re-derive the real offset at runtime by walking the flash segments
+  (`loader.c:127-190`, "Fix drom and irom … invalidated by elf2image and flash
+  load offset") is gated `#ifndef CONFIG_BOOTLOADER_MCUBOOT`, so under MCUboot it
+  is SKIPPED (`loader.c:191-197`) and the baked address is used as-is.
+
+**Net:** flash the slot0 image into slot1 and it boots its IRAM/DRAM correctly
+(those follow the runtime slot) but maps IROM/DROM (the ~80 % bulk) from slot0's
+physical flash — the OTHER, stale image. Result is new-RAM + wrong-ROM = crash or
+garbage. So the MMU remaps, but to a flash address fixed at build time, not to
+wherever the bootloader found the image. Slot-specific builds are required for
+DirectXIP. sysbuild already emits both variants, so this is free at build time.
+
+**OTA implication.** To keep DirectXIP, the update feed must carry BOTH variants
+and the device installs the one matching its INACTIVE slot. The running image
+knows its own slot from its compiled-in `CONFIG_FLASH_LOAD_OFFSET`, so "fetch the
+other variant" is a one-liner. The only way to ship a SINGLE artifact is to leave
+DirectXIP for a swap mode (`SWAP_USING_MOVE`/`OFFSET`): the image is always linked
+for the primary slot, written to the secondary, and MCUboot swaps it into primary
+before running — one binary, at the cost of a per-update copy (boot-time swap,
+flash wear, and it uses the otherwise-idle 124 KB `scratch` partition). That copy
+cost is exactly what DirectXIP was chosen to avoid.
