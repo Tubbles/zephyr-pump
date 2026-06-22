@@ -540,6 +540,12 @@ API path for the OTA client (later): the HTTP client takes a pre-connected socke
 `getaddrinfo()` (or async `dns_get_addr_info()`), then `socket()` + `connect()`,
 then hand the fd to the HTTP client.
 
-NOT yet verified on hardware. Check (needs a flash + console): `net dns
-<an-internet-name>` should return an A record via the router's DNS server. Tracked
-in TODO.md until done.
+Verified on hardware (2026-06-22): after flashing this build the board associated
+(WPA2, RSSI -43), DHCP bound `192.168.1.27` with DNS/gateway server `192.168.1.1`,
+and over the shell `net dns github.io` returned the four GitHub Pages addresses
+(`185.199.108–111.153`, `All results received`) and `net dns
+raw.githubusercontent.com` returned `185.199.108–111.133`. So the router's
+DHCP-advertised DNS server (option 6) populated the resolver and external names
+resolve, including the GitHub Pages host the OTA path will use. Poked with a
+pyserial script driving the shell (`tmp/serial_dns_check.py`, not committed, the
+same convention as the antenna measurement scripts), per [serial][shell][poke].
