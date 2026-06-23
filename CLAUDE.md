@@ -16,8 +16,9 @@ and code do not capture; skim it before debugging hardware or the build.
 
 ## Documentation and process
 
-Project docs live in `docs/` (DESIGN.md, LOG.md, SUGGESTIONS.md); TODO.md stays
-in the repo root. You have standing permission to create new documents and to
+Project docs live in `docs/` (DESIGN.md, LOG.md, OTA.md, SUGGESTIONS.md); TODO.md
+stays in the repo root. docs/OTA.md describes the self-update path (the board
+pulls a signed image from GitHub Pages into the spare DirectXIP slot). You have standing permission to create new documents and to
 set up new processes whenever you notice one is missing, at any time, without
 asking first. When you learn something worth keeping, spot a recurring task, or
 find a gap a document would fill, write it down then and there: design notes and

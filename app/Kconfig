@@ -42,4 +42,26 @@ config APP_WIFI
 	  command group is still available for manual control. Lives in
 	  app/src/wifi.c. See docs/LOG.md [wifi].
 
+config APP_UPDATE
+	bool "OTA firmware update shell command (HTTP/S -> inactive slot)"
+	depends on SHELL && HTTP_CLIENT && NET_SOCKETS && DNS_RESOLVER && IMG_MANAGER && BOOTLOADER_MCUBOOT && SETTINGS
+	help
+	  Register an "update" shell command group that fetches a prebuilt,
+	  signed image from a static endpoint (GitHub Pages by default) over
+	  DNS + TLS and writes it into the slot the board is not running from,
+	  then reboots so MCUboot (DirectXIP) boots the higher-version slot. The
+	  base URL persists in the settings/NVS "update/url" key. TLS peer
+	  verification is off for now (encrypt-only); see docs/OTA.md. Lives in
+	  app/src/update.c.
+
+config APP_UPDATE_URL
+	string "Default OTA base URL"
+	depends on APP_UPDATE
+	default "https://tubbles.github.io/zephyr-pump"
+	help
+	  Base URL the board fetches from until overridden at the console with
+	  "update url <url>". The board appends "/version" and
+	  "/firmware-slot0.bin" or "/firmware-slot1.bin" (the variant for its
+	  inactive slot).
+
 source "Kconfig.zephyr"
