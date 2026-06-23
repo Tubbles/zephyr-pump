@@ -1,0 +1,69 @@
+# Build both DirectXIP slot images on every push to main and publish them, plus
+# a plain-text /version, to GitHub Pages. The board's "update" shell command
+# fetches from there (see app/src/update.c and docs/OTA.md).
+#
+# The image version is stamped from the run number into app/VERSION's PATCHLEVEL
+# (not committed, build-time only). This is REQUIRED: DirectXIP boots the slot
+# with the higher version, so each published build must out-version the last or
+# the board will not switch to it after staging.
+#
+# The build uses the repo's own Dockerfile (the pinned toolchain), run as the
+# runner uid so the checkout's git ownership stays consistent and artifacts are
+# readable.
+name: firmware
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Stamp a monotonic image version
+        run: |
+          sed -i "s/^PATCHLEVEL = .*/PATCHLEVEL = ${{ github.run_number }}/" app/VERSION
+          echo "1.0.${{ github.run_number }}" > version.txt
+
+      - name: Build the pinned toolchain image
+        run: docker build -t zephyr-pump .
+
+      - name: Fetch the Zephyr workspace
+        run: docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" -e HOME=/tmp -e ZEPHYR_BASE="$PWD/zephyr" zephyr-pump make update
+
+      - name: Build both DirectXIP slot images
+        run: docker run --rm -u "$(id -u):$(id -g)" -v "$PWD:$PWD" -w "$PWD" -e HOME=/tmp -e ZEPHYR_BASE="$PWD/zephyr" zephyr-pump make build
+
+      - name: Assemble the Pages site
+        run: |
+          mkdir -p site
+          cp build/app/zephyr/zephyr.signed.bin site/firmware-slot0.bin
+          cp build/app_slot1_variant/zephyr/zephyr.signed.bin site/firmware-slot1.bin
+          cp version.txt site/version
+          ls -l site
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
