@@ -35,13 +35,20 @@ test/confirm/revert. Switching to `..._DIRECT_XIP_WITH_REVERT` plus an in-app
 healthy would auto-roll-back an update that fails to confirm. Left out of the
 A/B proof to keep the first hardware test minimal.
 
-## In-app wireless OTA (WiFi/SMP) instead of esptool staging
+## OTA self-update (implemented)
 
-The A/B demo staged slot 1 with `esptool write_flash 0x1e0000 ...` from the
-host. A real OTA has the running app receive the image over a radio and write
-slot 1 itself via the `flash_img` API + `boot_request_upgrade()`, or an MCUmgr
-SMP server. WiFi (SMP-over-UDP) is the intended transport, BLE the fallback.
-The bootloader/slot side is now in place; this is the remaining piece.
+Done, but as an HTTP(S) pull rather than the SMP server first sketched here: the
+running app fetches a signed image from GitHub Pages and writes the inactive slot
+via the `flash_img` API, then reboots into it under DirectXIP. See docs/OTA.md and
+docs/LOG.md [ota]. The remaining hardening is the next two items.
+
+## TLS peer verification for the OTA fetch
+
+The OTA client runs TLS with `TLS_PEER_VERIFY_NONE` (encrypt-only): the channel is
+encrypted but the server is not authenticated, so a MITM could serve firmware. Pin
+a CA (or the GitHub Pages leaf) and switch to `TLS_PEER_VERIFY_REQUIRED`, ideally
+once image signing lands so authenticity does not hinge on the transport. Note an
+embedded CA means tracking its rotation on a long-lived headless board.
 
 ## Enable image signing (currently BOOT_SIGNATURE_TYPE_NONE)
 

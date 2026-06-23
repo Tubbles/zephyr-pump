@@ -549,3 +549,63 @@ DHCP-advertised DNS server (option 6) populated the resolver and external names
 resolve, including the GitHub Pages host the OTA path will use. Poked with a
 pyserial script driving the shell (`tmp/serial_dns_check.py`, not committed, the
 same convention as the antenna measurement scripts), per [serial][shell][poke].
+
+## [ota] [directxip] [flash] [tls] [pages] [verified] 2026-06-23 — self-update over HTTPS works end to end, and the gotchas that fought it
+
+The board now updates itself: an `update` shell command pulls a prebuilt signed
+image from GitHub Pages into the inactive DirectXIP slot and reboots into it (see
+docs/OTA.md for the design). Verified on hardware: a board running 1.0.0 from
+slot0 ran `update now`, fetched 1.0.3 over HTTPS, wrote slot1, rebooted, and came
+up `running version : 1.0.3 / running slot : slot1` with WiFi `COMPLETED`. MCUboot
+only boots a hash-valid image, so a clean boot of 1.0.3 proves the slot was
+written byte-correct. The reverse direction (target slot0) uses the identical code
+path but was not separately cycled.
+
+The bring-up surfaced five non-obvious things, each of which cost real time:
+
+**[flash] No erase before write = bitwise-AND corruption (the main bug).** The
+first `update now` reported "wrote 1001004 bytes" and rebooted, but the board came
+back on the OLD version. Reading the slot back (`esptool read_flash 0x1e0000`) and
+diffing against the published image showed they differed at byte 0x16 — the
+`ih_ver` revision in the MCUboot header: published `02`, on-flash `00`. That is
+`new(0x02) AND old(0x00)`: flash programming only clears bits, so writing the new
+image onto an un-erased slot ANDs it onto the old one, mangling the header and SHA.
+MCUboot rejected the slot and DirectXIP fell back to the running one. `flash_img`
+does NOT erase on its own; the fix is `CONFIG_IMG_ERASE_PROGRESSIVELY=y` (it
+`select`s `STREAM_FLASH_ERASE` on this explicit-erase part), which erases each page
+ahead of the write. After the fix the same OTA booted 1.0.3.
+
+**[tls] GitHub/Fastly needs modern ciphersuites.** TLS to `*.github.io` works with
+peer verification OFF (encrypt-only, no embedded CA) and TLS 1.2, but only with the
+ECDHE+AES-GCM suites. The CBC suite in the upstream `samples/net/sockets/http_get`
+`overlay-tls.conf` is not offered by Fastly. Enabling the four
+`MBEDTLS_CIPHERSUITE_TLS_ECDHE_{RSA,ECDSA}_WITH_AES_{128,256}_GCM_*` symbols
+auto-selects the needed PSA primitives (GCM, SHA-2, ECDH/ECDSA, P-256, RSA verify)
+via `Kconfig.psa.auto`. `update check` (an HTTPS GET of /version) confirmed the
+handshake on hardware before the download path was trusted.
+
+**[serial] ModemManager grabs /dev/ttyACM0 on the host.** Host-side pyserial opens
+hung indefinitely; the host runs ModemManager, which probes/holds CDC-ACM nodes.
+The build container has no ModemManager, so serial pokes that run via `./dev.sh`
+(esptool/pyserial in-container) work cleanly. Use `/dev/serial/by-id/usb-Espressif_*`
+for a path that survives re-enumeration. Always guard ad-hoc serial scripts with a
+hard `signal.alarm(...)` so a stuck read can't wedge for an hour (it did).
+
+**[serial] The native USB-CDC wedges after a firmware sys_reboot.** After the app
+reboots itself (the OTA reboot, or `sys_reboot`), the USB-Serial/JTAG re-enumerates
+but the console is unresponsive to writes until an esptool RTS reset
+(`esptool ... --before default_reset --after hard_reset flash_id`) bounces it. So
+to read the console after an OTA, esptool-reset the board first, then open it. This
+does not change which slot boots (MCUboot re-selects the highest valid one).
+
+**[pages] The Actions token cannot enable Pages.** `actions/configure-pages` with
+`enablement: true` failed with "Resource not accessible by integration": the
+default `GITHUB_TOKEN` may not create the Pages site. Enable it once out of band as
+the repo owner (`gh api --method POST /repos/<o>/<r>/pages -f build_type=workflow`),
+then drop `enablement` so the workflow only reads the existing config. The firmware
+build steps themselves passed on the first run; only the Pages setup failed.
+
+**[ota] Monotonic version is mandatory.** DirectXIP boots the higher-version slot,
+so a published build must out-version the running one or `update now` stages it but
+the board never switches. CI stamps `app/VERSION` PATCHLEVEL from the workflow run
+number (build-time only), giving `1.0.<run>`.

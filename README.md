@@ -94,3 +94,20 @@ read-only monitor (runs on the host, auto-detects the device):
 ```
 ./console.sh
 ```
+
+## Self-update (OTA)
+
+The board can update itself over WiFi: an `update` shell command fetches a
+prebuilt signed image from GitHub Pages and writes it into the spare DirectXIP
+slot, then reboots into it. CI (`.github/workflows/firmware.yml`) builds and
+publishes both slot images on every push to `main`.
+
+```
+update url [<url>]   # show or set the base URL (persisted)
+update check         # print running vs published version
+update now           # download into the inactive slot, flash, reboot
+update status        # running slot, version, target variant
+```
+
+See docs/OTA.md for the design and the v1 security caveats (the fetch is
+encrypt-only and images are unsigned for now).
