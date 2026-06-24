@@ -4,10 +4,11 @@ Self-contained Zephyr build environment for the Seeed XIAO ESP32-C6
 (ESP32-C6, RISC-V). The git repo plus the Dockerfile fully describe the
 environment: nothing is installed on your machine except Podman.
 
-- `west.yml` pins the Zephyr revision and imports the two modules this project
+- `west.yml` pins the Zephyr revision and imports the four modules this project
   needs: `hal_espressif` (the Espressif HAL, ESP simple-boot bootloader support,
-  and WiFi/BT blobs) and `mcuboot` (the MCUboot bootloader, for OTA / A-B slot
-  swapping); the rest of the SoC support is in-tree.
+  and WiFi/BT blobs), `mcuboot` (the MCUboot bootloader, for OTA / A-B slot
+  swapping), and `mbedtls` + `tf-psa-crypto` (the crypto stack the WiFi driver and
+  the OTA TLS client select). The rest of the SoC support is in-tree.
 - `Dockerfile` bakes only the tools (west, Zephyr's Python build deps including
   esptool for flashing, the RISC-V Zephyr SDK, plus Prettier for Markdown and
   clang-format for C) into an image. The Zephyr source stays on the host.
