@@ -558,8 +558,9 @@ docs/OTA.md for the design). Verified on hardware: a board running 1.0.0 from
 slot0 ran `update now`, fetched 1.0.3 over HTTPS, wrote slot1, rebooted, and came
 up `running version : 1.0.3 / running slot : slot1` with WiFi `COMPLETED`. MCUboot
 only boots a hash-valid image, so a clean boot of 1.0.3 proves the slot was
-written byte-correct. The reverse direction (target slot0) uses the identical code
-path but was not separately cycled.
+written byte-correct. The reverse direction was then verified too: from
+1.0.3/slot1, `update now` fetched 1.0.5, wrote slot0, rebooted, and came up
+`running version : 1.0.5 / running slot : slot0`. Both A/B directions are proven.
 
 The bring-up surfaced five non-obvious things, each of which cost real time:
 
@@ -575,14 +576,26 @@ does NOT erase on its own; the fix is `CONFIG_IMG_ERASE_PROGRESSIVELY=y` (it
 `select`s `STREAM_FLASH_ERASE` on this explicit-erase part), which erases each page
 ahead of the write. After the fix the same OTA booted 1.0.3.
 
-**[tls] GitHub/Fastly needs modern ciphersuites.** TLS to `*.github.io` works with
-peer verification OFF (encrypt-only, no embedded CA) and TLS 1.2, but only with the
-ECDHE+AES-GCM suites. The CBC suite in the upstream `samples/net/sockets/http_get`
-`overlay-tls.conf` is not offered by Fastly. Enabling the four
+**[tls] TLS client to GitHub Pages, and a wrong claim retracted.** The fetch works
+with peer verification OFF (encrypt-only, no embedded CA) on TLS 1.2 with the
+ECDHE+AES-GCM suites: enabling the four
 `MBEDTLS_CIPHERSUITE_TLS_ECDHE_{RSA,ECDSA}_WITH_AES_{128,256}_GCM_*` symbols
-auto-selects the needed PSA primitives (GCM, SHA-2, ECDH/ECDSA, P-256, RSA verify)
-via `Kconfig.psa.auto`. `update check` (an HTTPS GET of /version) confirmed the
-handshake on hardware before the download path was trusted.
+auto-selects the PSA primitives (GCM, SHA-2, ECDH/ECDSA, P-256, RSA verify) via
+`Kconfig.psa.auto`, and `update check` (an HTTPS GET of /version) confirmed the
+handshake on hardware. GCM was a deliberate pick over the single CBC suite in the
+upstream `samples/net/sockets/http_get` `overlay-tls.conf`, but only as a
+modern-AEAD preference, NOT a necessity. An earlier draft here claimed Fastly does
+not offer that CBC suite: that was an untested assumption and it is false.
+`openssl s_client` to tubbles.github.io negotiates `ECDHE-RSA-AES128-SHA256` (the
+sample's CBC suite) on TLS 1.2 fine and prefers TLS 1.3 `TLS_AES_128_GCM_SHA256` by
+default, so the sample config would very likely have worked too. The CBC suite was
+never actually built or tested on the device.
+
+GitHub Pages is served through the Fastly CDN (responses carry `via: 1.1 varnish`,
+`x-served-by: cache-*`, `x-fastly-request-id`), so the TLS endpoint, ciphersuites,
+and cert are Fastly's. The cert is a Let's Encrypt leaf for `*.github.io` (not
+DigiCert), which rotates every ~60 to 90 days: another reason pinning a CA on a
+headless board is fragile, and a point for leaving verify-none in v1.
 
 **[serial] ModemManager grabs /dev/ttyACM0 on the host.** Host-side pyserial opens
 hung indefinitely; the host runs ModemManager, which probes/holds CDC-ACM nodes.
