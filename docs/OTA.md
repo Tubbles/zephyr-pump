@@ -58,9 +58,11 @@ unsigned-image decision:
 
 Net trust model: anyone who can serve that URL (or MITM it) can install firmware.
 Acceptable here because the binaries are public and the device controls nothing
-dangerous, but the hardening path is real and tracked: enable Ed25519 image
-signing (so MCUboot rejects unsigned/tampered images) and then turn TLS peer
-verification back on (pin a CA or the GitHub Pages leaf). See
+dangerous, but the hardening path is real and tracked. Ed25519 image signing is
+the endpoint-independent fix: trust lives in your signature, not the host's cert,
+so it holds wherever `update url` points. Transport authentication is secondary
+and, since the endpoint is configurable, would be provisioned per-host (a pinned
+server public key alongside the URL) rather than a baked-in CA. See
 docs/SUGGESTIONS.md.
 
 A corrupt or truncated download cannot brick the board: MCUboot validates the

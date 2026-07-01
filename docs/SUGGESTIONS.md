@@ -42,21 +42,31 @@ running app fetches a signed image from GitHub Pages and writes the inactive slo
 via the `flash_img` API, then reboots into it under DirectXIP. See docs/OTA.md and
 docs/LOG.md [ota]. The remaining hardening is the next two items.
 
-## TLS peer verification for the OTA fetch
+## Enable image signing (the primary OTA trust control)
+
+Signing is off today (`BOOT_SIGNATURE_TYPE_NONE`), so images carry an MCUboot
+header + SHA-256, which is integrity only, not authenticity: anyone who can write a
+slot, or serve the configured URL, can install firmware. Generate an Ed25519 key
+with `imgtool`, set `SB_CONFIG_BOOT_SIGNATURE_TYPE_ED25519` + the key, and embed
+the public key in the bootloader. This is the right layer for a configurable
+endpoint: trust lives in your signature, not the host, so the image is
+authenticated wherever `update url` points. Needed before trusting OTA in the
+field.
+
+## Transport authentication for the OTA fetch (secondary to signing)
 
 The OTA client runs TLS with `TLS_PEER_VERIFY_NONE` (encrypt-only): the channel is
-encrypted but the server is not authenticated, so a MITM could serve firmware. Pin
-a CA (or the GitHub Pages leaf) and switch to `TLS_PEER_VERIFY_REQUIRED`, ideally
-once image signing lands so authenticity does not hinge on the transport. Note an
-embedded CA means tracking its rotation on a long-lived headless board.
-
-## Enable image signing (currently BOOT_SIGNATURE_TYPE_NONE)
-
-The board defaults signing off, so images carry an MCUboot header + SHA-256 but
-no cryptographic signature: anyone who can write a slot can install firmware.
-Generating an Ed25519 key with `imgtool` and setting
-`SB_CONFIG_BOOT_SIGNATURE_TYPE_ED25519` + a key file would make the update path
-authentic. Skipped for the bring-up; needed before trusting OTA.
+encrypted but the server is not authenticated. This is deliberately secondary to
+signing. Once the image is signed, a substituted image is rejected regardless of
+who served it or what cert they had, so authenticity does not depend on the
+transport. If transport authentication is still wanted on top, it must be
+endpoint-specific, not baked in: `update url` makes the host configurable, so the
+firmware cannot assume GitHub/Fastly or any one CA. The host-neutral way is to
+provision the expected server key with the URL (e.g. `update url <url>
+<spki-sha256>`) and pin the public key (its SPKI hash), which survives cert
+renewals that reuse the key and needs no clock. Pinning a specific CA or leaf in
+firmware is the wrong layer: it couples a host-neutral device to one host's
+rotation schedule.
 
 ## A reliable boot-capture helper for the native USB-Serial/JTAG
 
